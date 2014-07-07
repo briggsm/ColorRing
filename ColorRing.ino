@@ -203,12 +203,19 @@ void loop() {
 	hh.handle(httpClient);
 	//Serial.print("Free RAM After http: "); Serial.println(getFreeRam(), DEC);
 
+
+	// ===================================================
 	// === Handle any EXTERNAL Ctrl Mode (UDP) Packets ===
+	// ===================================================
 	PixelColor newColor;
 	bool isOutside;
 
 	// Outside strip
-	if (OpMode == OPMODE_OUT_EXTERNAL_IN_INTERNAL || OpMode == OPMODE_OUT_EXTERNAL_IN_EXTERNAL) {
+	byte opModeOutside = ((OpMode & 0xF0) >> 4);
+	byte opModeInside = OpMode & 0x0F;
+		
+	//if (OpMode == OPMODE_OUT_EXTERNAL_IN_INTERNAL || OpMode == OPMODE_OUT_EXTERNAL_IN_EXTERNAL) {	
+	if (opModeOutside == OPMODE_EXTERNAL) {
 		isOutside = true;
 		strip = &outStrip;
 		
@@ -238,7 +245,8 @@ void loop() {
 	}
 	
 	// Inside strip
-	if (OpMode == OPMODE_OUT_INTERNAL_IN_EXTERNAL || OpMode == OPMODE_OUT_EXTERNAL_IN_EXTERNAL) {
+	//if (OpMode == OPMODE_OUT_INTERNAL_IN_EXTERNAL || OpMode == OPMODE_OUT_EXTERNAL_IN_EXTERNAL) {
+	if (opModeInside == OPMODE_EXTERNAL) {
 		isOutside = false;
 		strip = &inStrip;
 		
@@ -267,11 +275,14 @@ void loop() {
 		}
 	}
 	
+	// =================================================================
 	// === Do INTERNAL (inside & outside strip cmds) - if applicable ===
+	// =================================================================
 	currentMillis = millis();
 
 	// Outside strip
-	if (OpMode == OPMODE_OUT_INTERNAL_IN_INTERNAL || OpMode == OPMODE_OUT_INTERNAL_IN_EXTERNAL) {
+	//if (OpMode == OPMODE_OUT_INTERNAL_IN_INTERNAL || OpMode == OPMODE_OUT_INTERNAL_IN_EXTERNAL) {
+	if (opModeOutside == OPMODE_INTERNAL) {
 		if (currentMillis - outPreviousMillis > outAnimDelay) {
 			outAnimDelay = stripStep(OUTSIDE_STRIP);
 			outPreviousMillis = currentMillis;
@@ -279,7 +290,8 @@ void loop() {
 	}
 
 	// Inside strip
-	if (OpMode == OPMODE_OUT_INTERNAL_IN_INTERNAL || OpMode == OPMODE_OUT_EXTERNAL_IN_INTERNAL) {
+	//if (OpMode == OPMODE_OUT_INTERNAL_IN_INTERNAL || OpMode == OPMODE_OUT_EXTERNAL_IN_INTERNAL) {
+	if (opModeInside == OPMODE_INTERNAL) {
 		if (currentMillis - inPreviousMillis > inAnimDelay) {
 			inAnimDelay = stripStep(INSIDE_STRIP);
 			inPreviousMillis = currentMillis;
@@ -352,12 +364,15 @@ void executePacket() {
 			EEPROM.write(EEP_OPMODE, OpMode);
 			
 			// Clear both strips
+			//   user may or may not want to do this
+			/*
 			strip = &outStrip;
 			clearStrip(strip);
 			strip->show();
 			strip = &inStrip;
 			clearStrip(strip);
 			strip->show();
+			*/
 			
 			break;
 		case WIFI_PACKET_SET_OUT_EXTERNALCTRLMODE: //0xBB (187)

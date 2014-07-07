@@ -148,6 +148,7 @@ public:
 				if (command == "variable") {
 					//Serial.println("variable");
 					fullPacket += "{\"" + int_variables_names[idx] + "\": " + String(*int_variables[idx]) + ", ";
+					Serial.print(F("Variable: ")); Serial.println(String(*int_variables[idx]));
 				}
 
 				// Function selected

@@ -43,8 +43,8 @@
 
 // NeoPixel Strip 
 #define NUM_LEDS 60
-#define OUT_STRIP_PIN 6
-#define IN_STRIP_PIN 7
+#define OUT_STRIP_PIN 7
+#define IN_STRIP_PIN 6
 
 // These are the pins for the CC3000 chip if you are using a breakout board
 #define ADAFRUIT_CC3000_IRQ   3
@@ -72,10 +72,14 @@
 //#define WIFI_PACKET_SET_IN_STRIPCMD 0xDE
 
 // === OPMODEs ===
-#define OPMODE_OUT_INTERNAL_IN_INTERNAL 0
-#define OPMODE_OUT_INTERNAL_IN_EXTERNAL 1
-#define OPMODE_OUT_EXTERNAL_IN_INTERNAL 2
-#define OPMODE_OUT_EXTERNAL_IN_EXTERNAL 3
+//#define OPMODE_OUT_INTERNAL_IN_INTERNAL 0
+//#define OPMODE_OUT_INTERNAL_IN_EXTERNAL 1
+//#define OPMODE_OUT_EXTERNAL_IN_INTERNAL 2
+//#define OPMODE_OUT_EXTERNAL_IN_EXTERNAL 3
+#define OPMODE_INTERNAL 0
+#define OPMODE_EXTERNAL 1
+#define OPMODE_CLOCK 2
+#define OPMODE_WHITEFIVES 3
 
 // === External Ctrl Modes ===
 #define EXTERNALCTRLMODE_STRIPCOLOR 0
