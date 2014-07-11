@@ -7,7 +7,10 @@ Use the web browser to create & send commands to the LED strips, as well as send
 
 This code runs on the Arduino board.  You also need the code for the local web server: https://github.com/briggsm/colorringcc
 
+*Note: This code will NOT run on an Arduino Uno (the code's too big). I suggest an Arduino Mega 2560 or similar.*
+
+Tutorial
+--------
 A tutorial with demo videos, pictures, & a "how-to" can be found here:
 http://briggs-inc.com/blog/colorring/
 
-This code will NOT run on an Arduino Uno (the code's too big). I suggest an Arduino Mega 2560 or similar.
