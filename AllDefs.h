@@ -29,11 +29,7 @@
 #ifndef ALLDEFS_H
 #define ALLDEFS_H
 
-// Your WiFi SSID and password                                         
-//#define WLAN_SSID       "myNetwork"
-//#define WLAN_PASS       "myPassword"
-#define WLAN_SSID       "Tercume"
-#define WLAN_PASS       "Agape777Sevgi!"
+#include "pw.h"
 
 #define WLAN_SECURITY   WLAN_SEC_WPA2
 
@@ -43,8 +39,8 @@
 
 // NeoPixel Strip 
 #define NUM_LEDS 60
-#define OUT_STRIP_PIN 7
-#define IN_STRIP_PIN 6
+#define OUT_STRIP_PIN 6
+#define IN_STRIP_PIN 7
 
 // These are the pins for the CC3000 chip if you are using a breakout board
 #define ADAFRUIT_CC3000_IRQ   3
