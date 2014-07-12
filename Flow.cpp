@@ -143,7 +143,7 @@ void Flow::init(Adafruit_NeoPixel* strip,
 	multiGradient = MultiGradient(colorSeriesArr, numColorsInSeries, numPixelsEachColor, gradiateLastPixelFirstColor);
 	
 	// Init other variables
-	this->inOutStr = strip->getPin() == OUT_STRIP_PIN ? "OUTSIDE" : "INSIDE";
+	//this->inOutStr = strip->getPin() == OUT_STRIP_PIN ? "OUTSIDE" : "INSIDE";
 }
 
 void Flow::step(boolean isShowStrip) {

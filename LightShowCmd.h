@@ -80,7 +80,7 @@ protected:
 public:
 	boolean isPauseMode;
 	byte currIteration;
-	string inOutStr;
+	//string inOutStr;
         
 	LightShowCmd();
 	boolean isMoreSteps();

@@ -134,7 +134,7 @@ void SetSeqPixels::init(Adafruit_NeoPixel* strip,
 	this->currIteration = 0;
 	this->currPixelNum = startPixelNum;
 	this->numIter = numColorsInSeries * numPixelsEachColor * colorSeriesNumIter;
-	this->inOutStr = strip->getPin() == OUT_STRIP_PIN ? "OUTSIDE" : "INSIDE";
+	//this->inOutStr = strip->getPin() == OUT_STRIP_PIN ? "OUTSIDE" : "INSIDE";
 }
 
 void SetSeqPixels::step(boolean isShowStrip) {

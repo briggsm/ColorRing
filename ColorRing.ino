@@ -542,7 +542,7 @@ int str2int(String s) {
 }
 
 int stripStep(boolean isOutside) {
-	string inOutStr = isOutside ? "OUTSIDE" : "INSIDE";
+	string inOutStr = isOutside ? "OUTSIDE" : "INSIDE";  // Keep for reference.
 	//cout << "**stripStep(" << str << ")" << endl;
 	
 	if (isOutside) {

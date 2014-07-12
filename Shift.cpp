@@ -109,7 +109,7 @@ void Shift::init(Adafruit_NeoPixel* strip,
 	this->gradiateLastPixelFirstColor = NULL;  // N/A
 
 	// Init other variables
-	this->inOutStr = strip->getPin() == OUT_STRIP_PIN ? "OUTSIDE" : "INSIDE";
+	//this->inOutStr = strip->getPin() == OUT_STRIP_PIN ? "OUTSIDE" : "INSIDE";
 	
 	// Calc total number of pixels
 	if (endPixelNum >= startPixelNum) {

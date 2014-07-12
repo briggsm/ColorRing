@@ -48,7 +48,7 @@ LightShowCmd::LightShowCmd() {
 	
 	// Init other variables
 	this->currIteration = 0;
-	this->inOutStr = "None";
+	//this->inOutStr = "None";
 	isFirstTimeAfterFinished = true;
 	isPauseMode = false;
 	cmdFinishedTime = 0;
