@@ -26,7 +26,6 @@
 #include <Adafruit_CC3000.h>
 #include <SPI.h>
 #include "utility/debug.h"  // for getFreeRam()
-#include <Ethernet.h>
 #include <CC3000_MDNS.h>
 #include "HttpHandler.h"
 
