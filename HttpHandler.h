@@ -26,7 +26,7 @@
 #include "Arduino.h"
 
 #define NUMBER_VARIABLES 9
-#define NUMBER_FUNCTIONS 2
+#define NUMBER_FUNCTIONS 3
 
 class HttpHandler {
 

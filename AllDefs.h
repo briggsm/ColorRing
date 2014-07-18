@@ -48,14 +48,24 @@
 #define ADAFRUIT_CC3000_CS    10
 
 // === EEPROM Addresses ===
-#define EEP_OPMODE 0
-#define EEP_OUT_EXTERNALCTRLMODE 1  // Size: 8 (total)
-#define EEP_OUT_EXTERNALCTRLMODE_FLOWSPEED 2
-#define EEP_OUT_EXTERNALCTRLMODE_FLOWNUMSECTIONS 3
-#define EEP_IN_EXTERNALCTRLMODE 9  // Size: 7 (total)
-#define EEP_IN_EXTERNALCTRLMODE_FLOWSPEED 10
-#define EEP_IN_EXTERNALCTRLMODE_FLOWNUMSECTIONS 11
-#define EEP_STRIPCMDS 16  // Size: 640 (320 for OUTSIDE, 320 for INSIDE)
+// Storage for General - Available size: 16 bytes
+#define EEP_OPMODE 0  
+
+// Storage for Outside strip - Available size: 32 bytes
+#define EEP_OUT_EXTERNALCTRLMODE 0x10
+#define EEP_OUT_EXTERNALCTRLMODE_FLOWSPEED 0x11
+#define EEP_OUT_EXTERNALCTRLMODE_FLOWNUMSECTIONS 0x12
+#define EEP_OUT_COLORED5S_COLOR 0x13  // (3 bytes)
+// Note: next starts at byte 0x16!
+
+// Storage for Inside strip - Available size: 32 bytes
+#define EEP_IN_EXTERNALCTRLMODE 0x30
+#define EEP_IN_EXTERNALCTRLMODE_FLOWSPEED 0x31
+#define EEP_IN_EXTERNALCTRLMODE_FLOWNUMSECTIONS 0x32
+#define EEP_IN_COLORED5S_COLOR 0x33  // (3 bytes)
+// Note: next starts at byte 0x36!
+
+#define EEP_STRIPCMDS 0x50  // Size: 640 (320 for OUTSIDE, 320 for INSIDE)
 
 #define MAX_STRIPCMD_SIZE 32
 #define MAX_NUM_STRIPCMDS 10  // 10 per each strip
@@ -63,6 +73,8 @@
 #define WIFI_PACKET_SET_OPMODE 0xAA
 #define WIFI_PACKET_SET_OUT_EXTERNALCTRLMODE 0xBB
 #define WIFI_PACKET_SET_IN_EXTERNALCTRLMODE 0xBC
+#define WIFI_PACKET_SET_OUT_COLORED5S_COLOR 0xBD
+#define WIFI_PACKET_SET_IN_COLORED5S_COLOR 0xBE
 #define WIFI_PACKET_SET_COLOR 0xCC
 #define WIFI_PACKET_SET_STRIPCMD 0xDD
 //#define WIFI_PACKET_SET_IN_STRIPCMD 0xDE
@@ -75,7 +87,7 @@
 #define OPMODE_INTERNAL 0
 #define OPMODE_EXTERNAL 1
 #define OPMODE_CLOCK 2
-#define OPMODE_WHITEFIVES 3
+#define OPMODE_COLORED5S 3
 
 // === External Ctrl Modes ===
 #define EXTERNALCTRLMODE_STRIPCOLOR 0
@@ -113,5 +125,9 @@
 #define BOOLBIT_CLEARSTRIP 4
 #define BOOLBIT_GRADIATE 5
 #define BOOLBIT_GRADIATE_LASTPIXEL_FIRSTCOLOR 6
+
+// Colors - which are saved in EEPROM (but not within strip cmds)
+#define OUT_COLORED5S_COLOR 0
+#define IN_COLORED5S_COLOR 1
 
 #endif  // ALLDEFS_H

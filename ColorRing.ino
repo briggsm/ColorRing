@@ -72,7 +72,8 @@ int OutExternalCtrlModeFlowNumSections;
 int InExternalCtrlMode;
 int InExternalCtrlModeFlowSpeed;
 int InExternalCtrlModeFlowNumSections;
-PixelColor Color;
+PixelColor OutColored5sColor;
+PixelColor InColored5sColor;
 
 
 Adafruit_NeoPixel outStrip = Adafruit_NeoPixel(NUM_LEDS, OUT_STRIP_PIN, NEO_GRB + NEO_KHZ800);
@@ -105,7 +106,7 @@ void setup(void)
 	cout << F("Free RAM Start Setup: ") << getFreeRam() << endl;
 
 	// Print out the EEPROM
-	eepromPrint(656, "hex");
+	eepromPrint(0x2D0, "hex");
 
 	// Probably don't NEED to do this, but good just to have a sure starting point.
 	// Clear stripCmds array.
@@ -117,6 +118,7 @@ void setup(void)
 	readAllFromEEPROM();
 
 	// Init variables and expose them to HTTP Handler
+	// NOTE: REMEMBER TO CHANGE "#define NUMBER_VARIABLES" (in HttpHandler.h)!
 	maxNumStripCmds = MAX_NUM_STRIPCMDS;
 	maxStripCmdSize = MAX_STRIPCMD_SIZE;
 	hh.variable("maxNumStripCmds", &maxNumStripCmds);
@@ -128,15 +130,16 @@ void setup(void)
 	hh.variable("inExternalCtrlMode", &InExternalCtrlMode);
 	hh.variable("inExternalCtrlModeFlowSpeed", &InExternalCtrlModeFlowSpeed);
 	hh.variable("inExternalCtrlModeFlowNumSections", &InExternalCtrlModeFlowNumSections);
-
+	
 	// Function to be exposed
 	hh.function("packet", parsePacket);
 	hh.function("setHackNameToCmd", setHackNameToCmd);
+	hh.function("setHackNameToColor", setHackNameToColor);
 
 	// Give name and ID to device
 	//hh.set_id("777");
 	hh.set_name("ColorRing");
-
+	
 	// Set up CC3000 and get connected to the wireless network.
 	Serial.println(F("\nInitializing the CC3000..."));
 	if (!cc3000.begin())
@@ -203,9 +206,9 @@ void loop() {
 	//Serial.print("Free RAM After http: "); Serial.println(getFreeRam(), DEC);
 
 
-	// ===================================================
-	// === Handle any EXTERNAL Ctrl Mode (UDP) Packets ===
-	// ===================================================
+	// =============================================================================
+	// === Handle any EXTERNAL Ctrl Mode (UDP) Packets (inside & outside strips) ===
+	// =============================================================================
 	PixelColor newColor;
 	bool isOutside;
 
@@ -294,6 +297,46 @@ void loop() {
 		if (currentMillis - inPreviousMillis > inAnimDelay) {
 			inAnimDelay = stripStep(INSIDE_STRIP);
 			inPreviousMillis = currentMillis;
+		}
+	}
+	
+	// =================
+	// === COLORED 5's ===
+	// =================
+	if (opModeOutside == OPMODE_COLORED5S || opModeInside == OPMODE_COLORED5S) {
+		byte startPixelNum = 0;
+		byte numPixelsEachColor = 1;
+		byte colorSeriesNumIter = 12;
+		byte numPixelsToSkip = 4;
+		word animDelay = 0;
+		word pauseAfter = 0;
+		
+		bool destructive = true;
+		bool direction = CW;
+		bool isAnim = false;
+		bool clearStripBefore = true;
+		bool gradiate = false;
+		bool gradiateLastPixelFirstColor = false;
+		
+		byte numColorsInSeries = 1;
+		PixelColor colorSeriesArr[numColorsInSeries];
+	
+		if (opModeOutside == OPMODE_COLORED5S) {
+			strip = &outStrip;
+			//colorSeriesArr[0] = PixelColor(255,255,255);
+			colorSeriesArr[0] = OutColored5sColor;
+		
+			SetSeqPixels ssp(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
+			ssp.exec(SHOWSTRIP);
+		}
+	
+		if (opModeInside == OPMODE_COLORED5S) {
+			strip = &inStrip;
+			//colorSeriesArr[0] = PixelColor(255,255,255);
+			colorSeriesArr[0] = InColored5sColor;
+		
+			SetSeqPixels ssp(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
+			ssp.exec(SHOWSTRIP);
 		}
 	}
 }
@@ -424,6 +467,30 @@ void executePacket() {
 					break;
 			}
 			break;
+			
+		case WIFI_PACKET_SET_OUT_COLORED5S_COLOR:  //0xBD (189)
+			cout << F(" Setting OutColored5sColor...");
+			
+			// save to EEPROM & Global variable
+			OutColored5sColor = PixelColor(packet[1], packet[2], packet[3]);
+
+			EEPROM.write(EEP_OUT_COLORED5S_COLOR + 0, OutColored5sColor.R);
+			EEPROM.write(EEP_OUT_COLORED5S_COLOR + 1, OutColored5sColor.G);
+			EEPROM.write(EEP_OUT_COLORED5S_COLOR + 2, OutColored5sColor.B);
+			
+			break;
+			
+		case WIFI_PACKET_SET_IN_COLORED5S_COLOR:  //0xBE (190)
+			cout << F(" Setting InColored5sColor...");
+		
+			// save to EEPROM & Global variable
+			InColored5sColor = PixelColor(packet[1], packet[2], packet[3]);
+
+			EEPROM.write(EEP_IN_COLORED5S_COLOR + 0, InColored5sColor.R);
+			EEPROM.write(EEP_IN_COLORED5S_COLOR + 1, InColored5sColor.G);
+			EEPROM.write(EEP_IN_COLORED5S_COLOR + 2, InColored5sColor.B);
+		
+			break;
 
 		case WIFI_PACKET_SET_STRIPCMD:  // 0xDD (221)
 			byte cmdPos;
@@ -461,6 +528,33 @@ int setHackNameToCmd(String cmdPosStr) {
 
 	Serial.print("cmdBytesStr: "); Serial.println(cmdBytesStr);
 	hh.set_name(cmdBytesStr);
+}
+
+int setHackNameToColor(String desiredColorConst) {  // e.g. "0", "1", etc.
+	String colorStr = "";
+	int val;
+	int startEepromAdd = EEP_OUT_COLORED5S_COLOR;  // init
+
+	int colInt = desiredColorConst.toInt();
+	switch (colInt) {
+		case OUT_COLORED5S_COLOR:
+			startEepromAdd = EEP_OUT_COLORED5S_COLOR;
+			break;
+		
+		case IN_COLORED5S_COLOR:
+			startEepromAdd = EEP_IN_COLORED5S_COLOR;
+			break;
+	}
+	
+	for (int byteOffset = 0; byteOffset < 3; byteOffset++) {
+		val = EEPROM.read(startEepromAdd + byteOffset);
+		colorStr += String(val);
+		if (byteOffset < 2) {
+			colorStr += ",";
+		}
+	}
+	
+	hh.set_name(colorStr);
 }
 
 void eepromPrint(int numVals, String base) {
@@ -599,6 +693,7 @@ int stripStep(boolean isOutside) {
 void readAllFromEEPROM() {
 	readOpModeFromEEPROM();
 	readEcmsFromEEPROM();
+	readColored5sFromEEPROM();
 	readStripCmdsFromEEPROM();
 }
 
@@ -614,6 +709,19 @@ void readEcmsFromEEPROM() {
 	InExternalCtrlMode = EEPROM.read(EEP_IN_EXTERNALCTRLMODE);
 	InExternalCtrlModeFlowSpeed = EEPROM.read(EEP_IN_EXTERNALCTRLMODE_FLOWSPEED);
 	InExternalCtrlModeFlowNumSections = EEPROM.read(EEP_IN_EXTERNALCTRLMODE_FLOWNUMSECTIONS);
+}
+
+void readColored5sFromEEPROM() {
+	byte r,g,b;
+	r = EEPROM.read(EEP_OUT_COLORED5S_COLOR);
+	g = EEPROM.read(EEP_OUT_COLORED5S_COLOR + 1);
+	b = EEPROM.read(EEP_OUT_COLORED5S_COLOR + 2);
+	OutColored5sColor = PixelColor(r,g,b);
+
+	r = EEPROM.read(EEP_IN_COLORED5S_COLOR);
+	g = EEPROM.read(EEP_IN_COLORED5S_COLOR + 1);
+	b = EEPROM.read(EEP_IN_COLORED5S_COLOR + 2);
+	InColored5sColor = PixelColor(r,g,b);
 }
 
 void readStripCmdsFromEEPROM() {
