@@ -23,10 +23,10 @@
 	Arduino program.
 */
 
-#include <Adafruit_CC3000.h>
+#include <ColorRing_CC3000.h>
 #include <SPI.h>
 #include "utility/debug.h"  // for getFreeRam()
-#include <CC3000_MDNS.h>
+#include <ColorRing_CC3000_MDNS.h>
 #include "HttpHandler.h"
 
 #include <EEPROM.h>
@@ -51,13 +51,13 @@ namespace std {
 #include "AllDefs.h"
 
 // Create CC3000 instance
-Adafruit_CC3000 cc3000 = Adafruit_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT, SPI_CLOCK_DIV2);
+ColorRing_CC3000 cc3000 = ColorRing_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT, SPI_CLOCK_DIV2);
 
 // Create HTTP Handler instance
 HttpHandler hh = HttpHandler();
 
 // Server instance
-Adafruit_CC3000_Server httpServer(LISTEN_PORT_HTTP);
+ColorRing_CC3000_Server httpServer(LISTEN_PORT_HTTP);
 EcmServer ecmServer(LISTEN_PORT_ECM);
 
 // DNS responder instance
@@ -201,7 +201,7 @@ void loop() {
 
 	//Serial.print("Free RAM Before http: "); Serial.println(getFreeRam(), DEC);
 	// Handle http calls (for setting modes & stripCmds)
-	Adafruit_CC3000_ClientRef httpClient = httpServer.available();
+	ColorRing_CC3000_ClientRef httpClient = httpServer.available();
 	hh.handle(httpClient);
 	//Serial.print("Free RAM After http: "); Serial.println(getFreeRam(), DEC);
 

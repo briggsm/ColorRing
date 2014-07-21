@@ -76,7 +76,7 @@ public:
 		arguments = "";
 	}
 
-	void handle(Adafruit_CC3000_ClientRef client) {
+	void handle(ColorRing_CC3000_ClientRef client) {
 		if (client.available()) {
 			// Handle request
 			handle_proto(client, true);
@@ -90,7 +90,7 @@ public:
 		} 
 	}
 
-	void handle_proto(Adafruit_CC3000_ClientRef serial, bool headers) {
+	void handle_proto(ColorRing_CC3000_ClientRef serial, bool headers) {
 		Serial.println("HttpHandler::handle_proto()");
 
 		// Check if there is data available to read

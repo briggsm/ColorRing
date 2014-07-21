@@ -22,7 +22,7 @@
 
 #include <Arduino.h>
 
-#include "Adafruit_CC3000.h"
+#include "ColorRing_CC3000.h"
 #include "utility/socket.h"
 
 class UDPServer {
