@@ -32,11 +32,14 @@
 #include <EEPROM.h>
 #include <Adafruit_NeoPixel.h>
 #include "PixelColor.h"
-#include "EcmServer.h"
+#include "RTColorServer.h"
 
 #include "SetSeqPixels.h"
 #include "Shift.h"
 #include "Flow.h"
+
+#include "Wire.h" //??? needed for RTClib.h ??? Guess so, for now.
+#include "RTClib.h"
 
 #include <StandardCplusplus.h>
 #include <serstream>
@@ -58,13 +61,14 @@ HttpHandler hh = HttpHandler();
 
 // Server instance
 ColorRing_CC3000_Server httpServer(LISTEN_PORT_HTTP);
-EcmServer ecmServer(LISTEN_PORT_ECM);
+RTColorServer rtColorServer(LISTEN_PORT_ECM);
 
 // DNS responder instance
 MDNSResponder mdns;
 
 
-// GLOBAL VARIABLES
+// === PV's (Persistant Variables) => Stored in EEPROM ===
+// Accessed via "variable" request (must be an int):
 int OpMode;
 int OutExternalCtrlMode;
 int OutExternalCtrlModeFlowSpeed;
@@ -72,8 +76,25 @@ int OutExternalCtrlModeFlowNumSections;
 int InExternalCtrlMode;
 int InExternalCtrlModeFlowSpeed;
 int InExternalCtrlModeFlowNumSections;
-PixelColor OutColored5sColor;
-PixelColor InColored5sColor;
+int UseNtpServer;  // 1=>true, 0=>false
+int TzAdj;  // positive or negative integer
+int IsDst;  // 1=>true, 0=>false
+int HandSizeHour;
+int HandSizeMin;
+int HandSizeSec;
+int DispHourHandOut;  // 1=>true, 0=>false
+int DispHourHandIn;
+int DispMinHandOut;
+int DispMinHandIn;
+int DispSecHandOut;
+int DispSecHandIn;
+
+
+// Accessed via "byte array" request (anything other than an int)
+DateTime CurrTime;
+PixelColor OutColored5sColor, InColored5sColor;
+PixelColor HandColorHour, HandColorMin, HandColorSec;
+
 
 
 Adafruit_NeoPixel outStrip = Adafruit_NeoPixel(NUM_LEDS, OUT_STRIP_PIN, NEO_GRB + NEO_KHZ800);
@@ -98,6 +119,27 @@ long lastIecmFlowMs = 0;
 PixelColor lastOecmFlowColor(0,0,0);
 PixelColor lastIecmFlowColor(0,0,0);
 
+PixelColor outEcmColor(0,0,0);
+PixelColor inEcmColor(0,0,0);
+
+// NTP Server
+ColorRing_CC3000_Client ntpClient;
+const unsigned long
+  connectTimeout  = 15L * 1000L, // Max time to wait for server connection
+  responseTimeout = 15L * 1000L; // Max time to wait for data from server
+bool ntpGrabbedOnce;
+unsigned long lastGrabFromNtpSketchTime;
+unsigned long lastGrabbedNtpTime;
+byte ntpTriesRemaining;
+unsigned long lastManualSetTimeMS;
+unsigned long lastGrabbedManualTime;
+byte lastSecondVal;
+//unsigned long currTime;
+//DateTime currTime;
+//byte timeHours, timeMins, timeSecs;
+
+bool clockRTColorChanged = false;
+
 
 void setup(void)
 	{  
@@ -106,7 +148,7 @@ void setup(void)
 	cout << F("Free RAM Start Setup: ") << getFreeRam() << endl;
 
 	// Print out the EEPROM
-	eepromPrint(0x2D0, "hex");
+	eepromPrint(0x2E0, "hex");
 
 	// Probably don't NEED to do this, but good just to have a sure starting point.
 	// Clear stripCmds array.
@@ -119,6 +161,11 @@ void setup(void)
 
 	// Init variables and expose them to HTTP Handler
 	// NOTE: REMEMBER TO CHANGE "#define NUMBER_VARIABLES" (in HttpHandler.h)!
+	//   Note: After adding variable here, also modify:
+	//		x- readXYZFromEEPROM()
+	//		- realAllFromEEPROM()
+	//		- executePacket()
+	//		- AllDefs.h
 	maxNumStripCmds = MAX_NUM_STRIPCMDS;
 	maxStripCmdSize = MAX_STRIPCMD_SIZE;
 	hh.variable("maxNumStripCmds", &maxNumStripCmds);
@@ -130,11 +177,23 @@ void setup(void)
 	hh.variable("inExternalCtrlMode", &InExternalCtrlMode);
 	hh.variable("inExternalCtrlModeFlowSpeed", &InExternalCtrlModeFlowSpeed);
 	hh.variable("inExternalCtrlModeFlowNumSections", &InExternalCtrlModeFlowNumSections);
-	
+	hh.variable("useNtpServer", &UseNtpServer);
+	hh.variable("tzAdj", &TzAdj);
+	hh.variable("isDst", &IsDst);
+	hh.variable("handSizeHour", &HandSizeHour);
+	hh.variable("handSizeMin", &HandSizeMin);
+	hh.variable("handSizeSec", &HandSizeSec);
+	hh.variable("dispHourHandOut", &DispHourHandOut);
+	hh.variable("dispHourHandIn", &DispHourHandIn);
+	hh.variable("dispMinHandOut", &DispMinHandOut);
+	hh.variable("dispMinHandIn", &DispMinHandIn);
+	hh.variable("dispSecHandOut", &DispSecHandOut);
+	hh.variable("dispSecHandIn", &DispSecHandIn);
 	// Function to be exposed
 	hh.function("packet", parsePacket);
 	hh.function("setHackNameToCmd", setHackNameToCmd);
 	hh.function("setHackNameToColor", setHackNameToColor);
+	hh.function("setHackNameToTime", setHackNameToTime);
 
 	// Give name and ID to device
 	//hh.set_id("777");
@@ -161,6 +220,8 @@ void setup(void)
 	}
 	Serial.println(F("Connected!"));
 
+	//cc3000.setDHCP();
+
 	Serial.println(F("Request DHCP"));
 	while (!cc3000.checkDHCP())
 	{
@@ -179,7 +240,7 @@ void setup(void)
 
 	// Start server
 	httpServer.begin();
-	ecmServer.begin();
+	rtColorServer.begin();
 	Serial.println(F("Server(s) Listening for connections..."));
 
 	// === LED Strips ===
@@ -187,6 +248,16 @@ void setup(void)
 	outStrip.show();
 	inStrip.begin();  // all off
 	inStrip.show();
+	
+	// NTP Server
+	CurrTime = DateTime(0);
+	ntpGrabbedOnce = false;
+	ntpTriesRemaining = NTP_NUM_TRIES;
+	lastGrabFromNtpSketchTime = 0;
+	lastGrabbedNtpTime = 0;
+	lastManualSetTimeMS = 0;
+	lastGrabbedManualTime = 0;
+	lastSecondVal = 0;
 
 	Serial.print(F("Free RAM End Setup: ")); Serial.println(getFreeRam(), DEC);
 
@@ -200,42 +271,68 @@ void loop() {
 	mdns.update();
 
 	//Serial.print("Free RAM Before http: "); Serial.println(getFreeRam(), DEC);
+	
 	// Handle http calls (for setting modes & stripCmds)
 	ColorRing_CC3000_ClientRef httpClient = httpServer.available();
 	hh.handle(httpClient);
+	
 	//Serial.print("Free RAM After http: "); Serial.println(getFreeRam(), DEC);
-
-
-	// =============================================================================
-	// === Handle any EXTERNAL Ctrl Mode (UDP) Packets (inside & outside strips) ===
-	// =============================================================================
+	
+	// ===============================================
+	// === Handle all RealTime Color packets (UDP) ===
+	// ===============================================
 	PixelColor newColor;
-	bool isOutside;
+	byte colorUsage = COLOR_USAGE_NONE;
+	if (rtColorServer.handleNewColorPacket(newColor, colorUsage)) {
+		switch (colorUsage) {
+			case COLOR_USAGE_OUT_ECM:
+				outEcmColor = newColor;
+				break;
+			case COLOR_USAGE_IN_ECM:
+				inEcmColor = newColor;
+				break;
+			case COLOR_USAGE_OUT_COLORED5S:
+				OutColored5sColor = newColor;
+				break;
+			case COLOR_USAGE_IN_COLORED5S:
+				InColored5sColor = newColor;
+				break;
+			case COLOR_USAGE_HOUR_HAND:
+				HandColorHour = newColor;
+				clockRTColorChanged = true;
+				break;
+			case COLOR_USAGE_MIN_HAND:
+				HandColorMin = newColor;
+				clockRTColorChanged = true;
+				break;
+			case COLOR_USAGE_SEC_HAND:
+				HandColorSec = newColor;
+				clockRTColorChanged = true;
+				break;
+		}
+		// Note: for the PV's (Persistant Variables), DON'T update the EEPROM each time. Would probably burn out EEPROM too fast. Asking user to click Submit button to "lock it in".
+	}
 
-	// Outside strip
+	// ===========================================================
+	// === Handle EXTERNAL Ctrl Mode (inside & outside strips) ===
+	// ===========================================================
+	bool isOutside;
 	byte opModeOutside = ((OpMode & 0xF0) >> 4);
 	byte opModeInside = OpMode & 0x0F;
-		
-	//if (OpMode == OPMODE_OUT_EXTERNAL_IN_INTERNAL || OpMode == OPMODE_OUT_EXTERNAL_IN_EXTERNAL) {	
+	
+	// Outside strip
 	if (opModeOutside == OPMODE_EXTERNAL) {
-		isOutside = true;
 		strip = &outStrip;
 		
 		if (OutExternalCtrlMode == EXTERNALCTRLMODE_STRIPCOLOR) {
 			//EXTERNALCTRLMODE_STRIPCOLOR
-			
-			if (ecmServer.handleNewColorPacket(newColor, isOutside)) {
-				byte numColorsInSeries = 1;
-				PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = newColor;
-				SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
-				ecmSsp.exec(SHOWSTRIP);
-			}
+			byte numColorsInSeries = 1;
+			PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = outEcmColor;
+			SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+			ecmSsp.exec(SHOWSTRIP);
 		} else {
 			// EXTERNALCTRLMODE_FLOW
-			
-			if (ecmServer.handleNewColorPacket(newColor, isOutside)) {
-				lastOecmFlowColor = newColor;
-			}
+			lastOecmFlowColor = outEcmColor;
 			
 			if (millis() - lastOecmFlowMs > OutExternalCtrlModeFlowSpeed) {
 				lastOecmFlowMs = millis();
@@ -247,26 +344,19 @@ void loop() {
 	}
 	
 	// Inside strip
-	//if (OpMode == OPMODE_OUT_INTERNAL_IN_EXTERNAL || OpMode == OPMODE_OUT_EXTERNAL_IN_EXTERNAL) {
 	if (opModeInside == OPMODE_EXTERNAL) {
-		isOutside = false;
 		strip = &inStrip;
 		
 		if (InExternalCtrlMode == EXTERNALCTRLMODE_STRIPCOLOR) {
 			//EXTERNALCTRLMODE_STRIPCOLOR
-			
-			if (ecmServer.handleNewColorPacket(newColor, isOutside)) {
-				byte numColorsInSeries = 1;
-				PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = newColor;
-				SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
-				ecmSsp.exec(SHOWSTRIP);
-			}
+			byte numColorsInSeries = 1;
+			//PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = newColor;
+			PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = inEcmColor;
+			SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+			ecmSsp.exec(SHOWSTRIP);
 		} else {
 			// EXTERNALCTRLMODE_FLOW
-			
-			if (ecmServer.handleNewColorPacket(newColor, isOutside)) {
-				lastIecmFlowColor = newColor;
-			}
+			lastIecmFlowColor = inEcmColor;
 			
 			if (millis() - lastIecmFlowMs > InExternalCtrlModeFlowSpeed) {
 				lastIecmFlowMs = millis();
@@ -283,7 +373,6 @@ void loop() {
 	currentMillis = millis();
 
 	// Outside strip
-	//if (OpMode == OPMODE_OUT_INTERNAL_IN_INTERNAL || OpMode == OPMODE_OUT_INTERNAL_IN_EXTERNAL) {
 	if (opModeOutside == OPMODE_INTERNAL) {
 		if (currentMillis - outPreviousMillis > outAnimDelay) {
 			outAnimDelay = stripStep(OUTSIDE_STRIP);
@@ -292,7 +381,6 @@ void loop() {
 	}
 
 	// Inside strip
-	//if (OpMode == OPMODE_OUT_INTERNAL_IN_INTERNAL || OpMode == OPMODE_OUT_EXTERNAL_IN_INTERNAL) {
 	if (opModeInside == OPMODE_INTERNAL) {
 		if (currentMillis - inPreviousMillis > inAnimDelay) {
 			inAnimDelay = stripStep(INSIDE_STRIP);
@@ -300,9 +388,73 @@ void loop() {
 		}
 	}
 	
-	// =================
+	// =============
+	// === CLOCK ===
+	// =============
+	if (opModeOutside == OPMODE_CLOCK || opModeInside == OPMODE_CLOCK) {
+		if (UseNtpServer) {
+			if (!ntpGrabbedOnce || millis() - lastGrabFromNtpSketchTime > NTP_GRAB_FREQ_MS) {
+				if (ntpTriesRemaining > 0) {
+			
+					unsigned long t = getTime();  // Query time server
+					if (t) {
+						Serial.println(F("SUCCESSFULLY GRABBED TIME FROM NTP SERVER!"));
+						ntpGrabbedOnce = true;
+						lastGrabFromNtpSketchTime = millis();
+						lastGrabbedNtpTime = t;
+						ntpTriesRemaining = NTP_NUM_TRIES;
+					
+						//Debug
+						DateTime dt = DateTime(t);
+						Serial.print(dt.hour()); Serial.print(F(":"));
+						Serial.print(dt.minute()); Serial.print(F(":"));
+						Serial.println(dt.second());
+					
+					} else {
+						ntpTriesRemaining--;
+						Serial.print(F("FAILED TO GRAB TIME FROM NTP SERVER. "));
+						Serial.print(ntpTriesRemaining);
+						Serial.println(F(" tries remaining."));
+						delay(2000);  // pause for a bit. Will usually never hit this code, but if does, only once / day.
+					}
+				} else {
+					Serial.println(F("NTP SERVER GRAB TOTALLY FAILED. GIVING UP."));
+					// Pretend that we got the time, so we don't keep trying
+					ntpGrabbedOnce = true;
+					lastGrabFromNtpSketchTime = millis();
+					ntpTriesRemaining = NTP_NUM_TRIES;
+				}
+			}
+			
+			CurrTime = DateTime(lastGrabbedNtpTime + (TzAdj * 60 * 60) + (IsDst * 60 * 60) + (millis() - lastGrabFromNtpSketchTime) / 1000);
+		
+			//Debug
+			//Serial.print(CurrTime.hour()); Serial.print(F(":"));
+			//Serial.print(CurrTime.minute()); Serial.print(F(":"));
+			//Serial.println(CurrTime.second());
+		} else {
+			// Time must be set manually
+
+			// Debug
+			//Serial.print(F("unixtime: ")); Serial.println(CurrTime.unixtime());
+			//Serial.print(F("lastManualSetTimeMS: ")); Serial.println(lastManualSetTimeMS);
+			//Serial.print(F("millis: ")); Serial.println(millis());
+			//Serial.print(F("math: ")); Serial.println(CurrTime.unixtime() + (millis() - lastManualSetTimeMS) / 1000);
+			
+			CurrTime = DateTime(lastGrabbedManualTime + (millis() - lastManualSetTimeMS) / 1000);
+			
+			//Debug
+			//Serial.print(CurrTime.hour()); Serial.print(F(":"));
+			//Serial.print(CurrTime.minute()); Serial.print(F(":"));
+			//Serial.println(CurrTime.second());
+		}
+		
+		displayTimeToStrips();
+	}
+	
+	// ===================
 	// === COLORED 5's ===
-	// =================
+	// ===================
 	if (opModeOutside == OPMODE_COLORED5S || opModeInside == OPMODE_COLORED5S) {
 		byte startPixelNum = 0;
 		byte numPixelsEachColor = 1;
@@ -323,7 +475,6 @@ void loop() {
 	
 		if (opModeOutside == OPMODE_COLORED5S) {
 			strip = &outStrip;
-			//colorSeriesArr[0] = PixelColor(255,255,255);
 			colorSeriesArr[0] = OutColored5sColor;
 		
 			SetSeqPixels ssp(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
@@ -332,7 +483,6 @@ void loop() {
 	
 		if (opModeInside == OPMODE_COLORED5S) {
 			strip = &inStrip;
-			//colorSeriesArr[0] = PixelColor(255,255,255);
 			colorSeriesArr[0] = InColored5sColor;
 		
 			SetSeqPixels ssp(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
@@ -396,6 +546,12 @@ void executePacket() {
 	Serial.println("executePacket()");
 
 	switch (packet[0]) {
+		case WIFI_PACKET_DUMP_EEPROM_SM:  //0x90 (144)
+			cout << F(" Dumping EEPROM to Serial Monitor:") << endl;
+			
+			eepromPrint(0x2E0, "hex");
+			
+			break;
 		case WIFI_PACKET_SET_OPMODE:  // 0xAA (170)
 			
 			OpMode = packet[1];
@@ -467,9 +623,96 @@ void executePacket() {
 					break;
 			}
 			break;
+		case WIFI_PACKET_SET_USE_NTP_SERVER:  // 0xC0 (192)
+			cout << F(" Setting UseNtpServer...") << endl;
 			
+			UseNtpServer = packet[1];
+			
+			EEPROM.write(EEP_USE_NTP_SERVER, UseNtpServer);
+			
+			break;
+		case WIFI_PACKET_SET_TZ_ADJ:  // 0xC2 (194)
+			cout << F(" Setting TzAdj...") << endl;
+			
+			
+			//byte val = packet[1];  // for some reason, can't put this all on 1 line.??? 
+			byte val;
+			val = packet[1];
+			
+			if (val >= 128) {  // if negative
+				TzAdj = val - 0xFF - 1;
+			} else {
+				TzAdj = val;
+			}
+			
+			//Serial.print(F("TzAdj: ")); Serial.println(TzAdj);
+			EEPROM.write(EEP_TZ_ADJ, TzAdj);
+			
+			break;
+		case WIFI_PACKET_SET_IS_DST:  // 0xC3 (195)
+			cout << F(" Setting IsDst...") << endl;
+		
+			IsDst = packet[1];
+			EEPROM.write(EEP_IS_DST, IsDst);
+		
+			break;
+		case WIFI_PACKET_SET_HAND_SIZES:  // 0xC4 (196)
+			cout << F(" Setting HandSizes...") << endl;
+	
+			HandSizeHour = packet[1];
+			HandSizeMin = packet[2];
+			HandSizeSec = packet[3];
+			
+			EEPROM.write(EEP_HANDSIZE_HOUR, HandSizeHour);
+			EEPROM.write(EEP_HANDSIZE_MIN, HandSizeMin);
+			EEPROM.write(EEP_HANDSIZE_SEC, HandSizeSec);
+	
+			break;
+		case WIFI_PACKET_SET_HAND_COLORS:  // 0xC5 (197)
+			cout << F(" Setting HandColors...") << endl;
+
+			HandColorHour = PixelColor(packet[1], packet[2], packet[3]);
+			HandColorMin = PixelColor(packet[4], packet[5], packet[6]);
+			HandColorSec = PixelColor(packet[7], packet[8], packet[9]);
+		
+			EEPROM.write(EEP_HANDCOLOR_HOUR, HandColorHour.R);	EEPROM.write(EEP_HANDCOLOR_HOUR+1, HandColorHour.G);	EEPROM.write(EEP_HANDCOLOR_HOUR+2, HandColorHour.B);
+			EEPROM.write(EEP_HANDCOLOR_MIN, HandColorMin.R);	EEPROM.write(EEP_HANDCOLOR_MIN+1, HandColorMin.G);		EEPROM.write(EEP_HANDCOLOR_MIN+2, HandColorMin.B);
+			EEPROM.write(EEP_HANDCOLOR_SEC, HandColorSec.R);	EEPROM.write(EEP_HANDCOLOR_SEC+1, HandColorSec.G);		EEPROM.write(EEP_HANDCOLOR_SEC+2, HandColorSec.B);
+
+			break;
+		case WIFI_PACKET_SET_DISP_CLOCK_HANDS_OUT_IN:  //0xC6 (198)
+			cout << F(" Setting DispClockHand (Outside and Inside)...") << endl;
+			
+			DispHourHandOut = packet[1];
+			DispHourHandIn = packet[2];
+			DispMinHandOut = packet[3];
+			DispMinHandIn = packet[4];
+			DispSecHandOut = packet[5];
+			DispSecHandIn = packet[6];
+			
+			EEPROM.write(EEP_HOUR_HAND_OUT, DispHourHandOut);
+			EEPROM.write(EEP_HOUR_HAND_IN, DispHourHandIn);
+			EEPROM.write(EEP_MIN_HAND_OUT, DispMinHandOut);
+			EEPROM.write(EEP_MIN_HAND_IN, DispMinHandIn);
+			EEPROM.write(EEP_SEC_HAND_OUT, DispSecHandOut);
+			EEPROM.write(EEP_SEC_HAND_IN, DispSecHandIn);
+			
+			break;
+		case WIFI_PACKET_SET_TIME:  // 0xC1 (193)
+			cout << F(" Setting Time...") << endl;
+			
+			//cout << "p1:" << (int)packet[1] << endl;
+			//cout << "p2:" << (int)packet[2] << endl;
+			//cout << "p3:" << (int)packet[3] << endl;
+			
+			CurrTime = DateTime(CurrTime.year(), CurrTime.month(), CurrTime.day(), packet[1], packet[2], packet[3]);
+			
+			lastManualSetTimeMS = millis();
+			lastGrabbedManualTime = CurrTime.unixtime();
+		
+			break;
 		case WIFI_PACKET_SET_OUT_COLORED5S_COLOR:  //0xBD (189)
-			cout << F(" Setting OutColored5sColor...");
+			cout << F(" Setting OutColored5sColor...") << endl;
 			
 			// save to EEPROM & Global variable
 			OutColored5sColor = PixelColor(packet[1], packet[2], packet[3]);
@@ -481,7 +724,7 @@ void executePacket() {
 			break;
 			
 		case WIFI_PACKET_SET_IN_COLORED5S_COLOR:  //0xBE (190)
-			cout << F(" Setting InColored5sColor...");
+			cout << F(" Setting InColored5sColor...") << endl;
 		
 			// save to EEPROM & Global variable
 			InColored5sColor = PixelColor(packet[1], packet[2], packet[3]);
@@ -531,30 +774,41 @@ int setHackNameToCmd(String cmdPosStr) {
 }
 
 int setHackNameToColor(String desiredColorConst) {  // e.g. "0", "1", etc.
-	String colorStr = "";
-	int val;
-	int startEepromAdd = EEP_OUT_COLORED5S_COLOR;  // init
-
+	String colorStr;
+	PixelColor pc;
+	
 	int colInt = desiredColorConst.toInt();
 	switch (colInt) {
 		case OUT_COLORED5S_COLOR:
-			startEepromAdd = EEP_OUT_COLORED5S_COLOR;
+			pc = OutColored5sColor;
 			break;
-		
 		case IN_COLORED5S_COLOR:
-			startEepromAdd = EEP_IN_COLORED5S_COLOR;
+			pc = InColored5sColor;
+			break;
+		case HANDCOLOR_HOUR:
+			pc = HandColorHour;
+			break;
+		case HANDCOLOR_MIN:
+			pc = HandColorMin;
+			break;
+		case HANDCOLOR_SEC:
+			pc = HandColorSec;
 			break;
 	}
 	
-	for (int byteOffset = 0; byteOffset < 3; byteOffset++) {
-		val = EEPROM.read(startEepromAdd + byteOffset);
-		colorStr += String(val);
-		if (byteOffset < 2) {
-			colorStr += ",";
-		}
-	}
+	colorStr = String(pc.R) + "," + String(pc.G) + "," + String(pc.B);
 	
 	hh.set_name(colorStr);
+}
+
+int setHackNameToTime(String na) {
+	String timeStr = "";
+	
+	timeStr += CurrTime.hour(); timeStr += ",";
+	timeStr += CurrTime.minute(); timeStr += ",";
+	timeStr += CurrTime.second();
+	
+	hh.set_name(timeStr);
 }
 
 void eepromPrint(int numVals, String base) {
@@ -636,7 +890,7 @@ int str2int(String s) {
 
 int stripStep(boolean isOutside) {
 	string inOutStr = isOutside ? "OUTSIDE" : "INSIDE";  // Keep for reference.
-	//cout << "**stripStep(" << str << ")" << endl;
+	//cout << "**stripStep(" << inOutStr << ")" << endl;
 	
 	if (isOutside) {
 		strip = &outStrip;
@@ -649,18 +903,16 @@ int stripStep(boolean isOutside) {
 	
 	int startCmdPos = isOutside ? 0 : MAX_NUM_STRIPCMDS;
 	int endCmdPos = isOutside ? MAX_NUM_STRIPCMDS-1 : (MAX_NUM_STRIPCMDS * 2) - 1;
-	//cout << "startCmdPos: " << startCmdPos << ", endCmdPos: " << endCmdPos << endl;
+	//cout << "startCmdPos: " << (int)startCmdPos << ", endCmdPos: " << (int)endCmdPos << endl;
 	
 	for (int i = startCmdPos; i <= endCmdPos; i++) {
 		if (stripCmds[i]) {
-			
 			// Debug output
-			if (stripCmds[i]->currIteration == 0 && stripCmds[i]->isMoreSteps()) {
+			// Keep.
+			//if (stripCmds[i]->currIteration == 0 && stripCmds[i]->isMoreSteps()) {
 				// First time only
-				// Keep, maybe.
-				//cout << F("Starting cmd '#") << i << F("' (") << stripCmds[i]->getCmdTypeStr() << F(") on '") << stripCmds[i]->inOutStr << F(" strip.") << endl;
-				
-			}
+				//cout << F("Starting cmd '#") << i << F("' (") << stripCmds[i]->getCmdTypeStr() << F(") on '") << inOutStr << F(" strip.") << endl;
+			//}
 			
 			if (stripCmds[i]->isMoreSteps()) {
 				if (!stripCmds[i]->getIsAnim()) {
@@ -676,7 +928,7 @@ int stripStep(boolean isOutside) {
 		}
 	}
 	if (!stepTaken) {
-		// Keep, maybe.
+		// Keep.
 		//cout << "Done with all cmds on " << inOutStr << " strip. (no step taken). RESETTING all cmds for this strip." << endl;
 
 		// Reset all cmds (just for current strip)
@@ -691,37 +943,73 @@ int stripStep(boolean isOutside) {
 }
 
 void readAllFromEEPROM() {
-	readOpModeFromEEPROM();
-	readEcmsFromEEPROM();
-	readColored5sFromEEPROM();
 	readStripCmdsFromEEPROM();
-}
 
-void readOpModeFromEEPROM() {
+	// Read all PV's (Persistant Variables) from EEPROM
+	byte r,g,b;
+	
+	// OpMode
 	OpMode = EEPROM.read(EEP_OPMODE);
-}
-
-void readEcmsFromEEPROM() {
-	// Read the External Cntl Mode's (outside & inside) from EEPROM.
+	
+	// ECM's
 	OutExternalCtrlMode = EEPROM.read(EEP_OUT_EXTERNALCTRLMODE);
 	OutExternalCtrlModeFlowSpeed = EEPROM.read(EEP_OUT_EXTERNALCTRLMODE_FLOWSPEED);
 	OutExternalCtrlModeFlowNumSections = EEPROM.read(EEP_OUT_EXTERNALCTRLMODE_FLOWNUMSECTIONS);
 	InExternalCtrlMode = EEPROM.read(EEP_IN_EXTERNALCTRLMODE);
 	InExternalCtrlModeFlowSpeed = EEPROM.read(EEP_IN_EXTERNALCTRLMODE_FLOWSPEED);
 	InExternalCtrlModeFlowNumSections = EEPROM.read(EEP_IN_EXTERNALCTRLMODE_FLOWNUMSECTIONS);
-}
-
-void readColored5sFromEEPROM() {
-	byte r,g,b;
+	
+	// Colored 5's
 	r = EEPROM.read(EEP_OUT_COLORED5S_COLOR);
-	g = EEPROM.read(EEP_OUT_COLORED5S_COLOR + 1);
-	b = EEPROM.read(EEP_OUT_COLORED5S_COLOR + 2);
+	g = EEPROM.read(EEP_OUT_COLORED5S_COLOR+1);
+	b = EEPROM.read(EEP_OUT_COLORED5S_COLOR+2);
 	OutColored5sColor = PixelColor(r,g,b);
-
 	r = EEPROM.read(EEP_IN_COLORED5S_COLOR);
-	g = EEPROM.read(EEP_IN_COLORED5S_COLOR + 1);
-	b = EEPROM.read(EEP_IN_COLORED5S_COLOR + 2);
+	g = EEPROM.read(EEP_IN_COLORED5S_COLOR+1);
+	b = EEPROM.read(EEP_IN_COLORED5S_COLOR+2);
 	InColored5sColor = PixelColor(r,g,b);
+	
+	// UseNtpServer
+	UseNtpServer = EEPROM.read(EEP_USE_NTP_SERVER);
+	
+	// TzAdj
+	byte val = EEPROM.read(EEP_TZ_ADJ);
+	if (val >= 128) {  // if negative number
+		TzAdj = val - 0xFF - 1;
+	} else {
+		TzAdj = val;
+	}
+	
+	// IsDst
+	IsDst = EEPROM.read(EEP_IS_DST);
+	
+	// === Hand Properties (sizes & colors) ===
+	// HandSizes
+	HandSizeHour = EEPROM.read(EEP_HANDSIZE_HOUR);
+	HandSizeMin = EEPROM.read(EEP_HANDSIZE_MIN);
+	HandSizeSec = EEPROM.read(EEP_HANDSIZE_SEC);
+	
+	// HandColors
+	r = EEPROM.read(EEP_HANDCOLOR_HOUR);
+	g = EEPROM.read(EEP_HANDCOLOR_HOUR+1);
+	b = EEPROM.read(EEP_HANDCOLOR_HOUR+2);
+	HandColorHour = PixelColor(r,g,b);
+	r = EEPROM.read(EEP_HANDCOLOR_MIN);
+	g = EEPROM.read(EEP_HANDCOLOR_MIN+1);
+	b = EEPROM.read(EEP_HANDCOLOR_MIN+2);
+	HandColorMin = PixelColor(r,g,b);
+	r = EEPROM.read(EEP_HANDCOLOR_SEC);
+	g = EEPROM.read(EEP_HANDCOLOR_SEC+1);
+	b = EEPROM.read(EEP_HANDCOLOR_SEC+2);
+	HandColorSec = PixelColor(r,g,b);
+	
+	// Disp on which strips
+	DispHourHandOut = EEPROM.read(EEP_HOUR_HAND_OUT);
+	DispHourHandIn = EEPROM.read(EEP_HOUR_HAND_IN);
+	DispMinHandOut = EEPROM.read(EEP_MIN_HAND_OUT);
+	DispMinHandIn = EEPROM.read(EEP_MIN_HAND_IN);
+	DispSecHandOut = EEPROM.read(EEP_SEC_HAND_OUT);
+	DispSecHandIn = EEPROM.read(EEP_SEC_HAND_IN);
 }
 
 void readStripCmdsFromEEPROM() {
@@ -775,3 +1063,145 @@ void readStripCmdsFromEEPROM() {
 	}
 }
 
+
+void displayTimeToStrips() {
+	//string inOutStr = isOutside ? "OUTSIDE" : "INSIDE";  // Keep for reference.
+
+	if (CurrTime.second() != lastSecondVal || clockRTColorChanged) {
+		// Update only once / second (unless RealTime color is changing)
+		lastSecondVal = CurrTime.second();
+		clockRTColorChanged = false;
+
+		byte opModeOutside = ((OpMode & 0xF0) >> 4);
+		byte opModeInside = OpMode & 0x0F;
+
+		byte handVal[3];
+		byte handSize[3];
+		PixelColor handColor[3];
+		byte handDispOut[3];
+		byte handDispIn[3];
+	
+		byte h = CurrTime.hour();
+		if (h > 11) { h -= 12; }
+	
+		handVal[HOUR] = (h * 5) + (CurrTime.minute() / 12);
+		handVal[MIN] = CurrTime.minute();
+		handVal[SEC] = CurrTime.second();
+	
+		handSize[HOUR] = HandSizeHour;
+		handSize[MIN] = HandSizeMin;
+		handSize[SEC] = HandSizeSec;
+	
+		handColor[HOUR] = HandColorHour;
+		handColor[MIN] = HandColorMin;
+		handColor[SEC] = HandColorSec;
+	
+		handDispOut[HOUR] = DispHourHandOut;
+		handDispIn[HOUR] = DispHourHandIn;
+		handDispOut[MIN] = DispMinHandOut;
+		handDispIn[MIN] = DispMinHandIn;
+		handDispOut[SEC] = DispSecHandOut;
+		handDispIn[SEC] = DispSecHandIn;
+
+		byte clkHand;
+		uint32_t currHandColor;
+		uint8_t pixelNum;
+
+		// Clear Strip(s) (if applicable)
+		if (opModeOutside == OPMODE_CLOCK) {
+			strip = &outStrip;
+			clearStrip(strip);
+		}
+
+		if (opModeInside == OPMODE_CLOCK) {
+			strip = &inStrip;
+			clearStrip(strip);
+		}
+	
+		byte numColorsInSeries = 1;
+		PixelColor colorSeriesArr[numColorsInSeries];
+		for (clkHand = HOUR; clkHand <= SEC; clkHand++) {  // 0 to 2
+			byte startPixelNum = handVal[clkHand] - (handSize[clkHand] / 2);
+			startPixelNum = LightShowCmd::fixPixelNum(startPixelNum);
+			colorSeriesArr[0] = handColor[clkHand];
+		
+			// Outside strip
+			if (opModeOutside == OPMODE_CLOCK) {
+				strip = &outStrip;
+				if (handDispOut[clkHand] == 1) {
+					SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+					handSsp.exec(NOSHOWSTRIP);
+				}
+			}
+		
+			// Inside strip
+			if (opModeInside == OPMODE_CLOCK) {
+				strip = &inStrip;
+				if (handDispIn[clkHand] == 1) {
+					SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+					handSsp.exec(NOSHOWSTRIP);
+				}
+			}
+		}
+		
+		if (opModeOutside == OPMODE_CLOCK) {
+			strip = &outStrip;
+			strip->show();
+		}
+		if (opModeInside == OPMODE_CLOCK) {
+			strip = &inStrip;
+			strip->show();
+		}
+	}
+}
+
+// Minimalist time server query; adapted from Adafruit Gutenbird sketch,
+// which in turn has roots in Arduino UdpNTPClient tutorial.
+unsigned long getTime(void) {
+
+  uint8_t       buf[48];
+  unsigned long ip, startTime, t = 0L;
+
+  Serial.print(F("Locating time server..."));
+
+  // Hostname to IP lookup; use NTP pool (rotates through servers)
+  if(cc3000.getHostByName("pool.ntp.org", &ip)) {
+    static const char PROGMEM
+      timeReqA[] = { 227,  0,  6, 236 },
+      timeReqB[] = {  49, 78, 49,  52 };
+
+    Serial.println(F("\r\nAttempting connection..."));
+    startTime = millis();
+    do {
+      ntpClient = cc3000.connectUDP(ip, 123);
+    } while((!ntpClient.connected()) &&
+            ((millis() - startTime) < connectTimeout));
+
+    if(ntpClient.connected()) {
+      Serial.print(F("connected!\r\nIssuing request..."));
+
+      // Assemble and issue request packet
+      memset(buf, 0, sizeof(buf));
+      memcpy_P( buf    , timeReqA, sizeof(timeReqA));
+      memcpy_P(&buf[12], timeReqB, sizeof(timeReqB));
+      ntpClient.write(buf, sizeof(buf));
+
+      Serial.print(F("\r\nAwaiting response..."));
+      memset(buf, 0, sizeof(buf));
+      startTime = millis();
+      while((!ntpClient.available()) &&
+            ((millis() - startTime) < responseTimeout));
+      if(ntpClient.available()) {
+        ntpClient.read(buf, sizeof(buf));
+        t = (((unsigned long)buf[40] << 24) |
+             ((unsigned long)buf[41] << 16) |
+             ((unsigned long)buf[42] <<  8) |
+              (unsigned long)buf[43]) - 2208988800UL;
+        Serial.print(F("OK\r\n"));
+      }
+      ntpClient.close();
+    }
+  }
+  if(!t) Serial.println(F("error"));
+  return t;
+}

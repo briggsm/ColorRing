@@ -88,7 +88,7 @@ public:
 	virtual void step(boolean isShowStrip) = 0;
 	void exec(boolean isShowStrip);
 	
-	byte fixPixelNum(byte pixelNum);
+	static byte fixPixelNum(byte pixelNum);
 	void showAndWait();
 
 	virtual void reset() = 0;

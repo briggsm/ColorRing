@@ -17,8 +17,8 @@
 	accompanying COPYING file
 */
 
-#ifndef ECMSERVER_H
-#define ECMSERVER_H
+#ifndef RTCOLORSERVER_H
+#define RTCOLORSERVER_H
 
 #include <Arduino.h>
 #include "UDPServer.h"
@@ -28,16 +28,15 @@
 #include <serstream>
 using namespace std;
 
-class EcmServer : public UDPServer{
+class RTColorServer : public UDPServer{
 
 private:
-	PixelColor _lastOutColor;
-	PixelColor _lastInColor;
-	bool isOutColorGrabbed;
-	bool isInColorGrabbed;
+	PixelColor _lastColor;
+	bool isColorGrabbed;
 	
 public:
-	EcmServer(uint16_t port); // : UDPServer(port) { }
-	bool handleNewColorPacket(PixelColor &newColor, bool isOutside);
+	RTColorServer(uint16_t port); // : UDPServer(port) { }
+	bool handleNewColorPacket(PixelColor &newColor, byte &colorUsage);
 };
-#endif  // ECMSERVER_H
+
+#endif
