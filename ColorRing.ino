@@ -23,10 +23,8 @@
 	Arduino program.
 */
 
-#include <ColorRing_CC3000.h>
 #include <SPI.h>
 #include "utility/debug.h"  // for getFreeRam()
-#include <ColorRing_CC3000_MDNS.h>
 #include "HttpHandler.h"
 
 #include <EEPROM.h>
@@ -53,15 +51,27 @@ namespace std {
 
 #include "AllDefs.h"
 
-// Create CC3000 instance
-ColorRing_CC3000 cc3000 = ColorRing_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT, SPI_CLOCK_DIV2);
+
+#include <Arduino.h>
+#ifndef CORE_WILDFIRE 
+	#include <ColorRing_CC3000.h>
+	#include <ColorRing_CC3000_MDNS.h>
+	ColorRing_CC3000 cc3000 = ColorRing_CC3000(ADAFRUIT_CC3000_CS, ADAFRUIT_CC3000_IRQ, ADAFRUIT_CC3000_VBAT, SPI_CLOCK_DIV2);
+	ColorRing_CC3000_Server httpServer(LISTEN_PORT_HTTP);
+#else
+	#include <WildFire_CC3000.h>
+	#include <WildFire_CC3000_MDNS.h>
+	#include <WildFire_CC3000_Server.h>
+	WildFire_CC3000 cc3000;
+	WildFire_CC3000_Server httpServer(LISTEN_PORT_HTTP);
+#endif
 
 // Create HTTP Handler instance
 HttpHandler hh = HttpHandler();
 
-// Server instance
-ColorRing_CC3000_Server httpServer(LISTEN_PORT_HTTP);
+// Real Time Color Server
 RTColorServer rtColorServer(LISTEN_PORT_ECM);
+
 
 // DNS responder instance
 MDNSResponder mdns;
@@ -123,7 +133,12 @@ PixelColor outEcmColor(0,0,0);
 PixelColor inEcmColor(0,0,0);
 
 // NTP Server
-ColorRing_CC3000_Client ntpClient;
+#ifndef CORE_WILDFIRE
+	ColorRing_CC3000_Client ntpClient;
+#else
+	WildFire_CC3000_Client ntpClient;
+#endif
+	
 const unsigned long
   connectTimeout  = 3L * 1000L, // Max time to wait for server connection
   responseTimeout = 1L * 1000L; // Max time to wait for data from server
@@ -273,7 +288,12 @@ void loop() {
 	//Serial.print("Free RAM Before http: "); Serial.println(getFreeRam(), DEC);
 	
 	// Handle http calls (for setting modes & stripCmds)
+#ifndef CORE_WILDFIRE
 	ColorRing_CC3000_ClientRef httpClient = httpServer.available();
+#else
+	WildFire_CC3000_ClientRef httpClient = httpServer.available();
+#endif
+	
 	hh.handle(httpClient);
 	
 	//Serial.print("Free RAM After http: "); Serial.println(getFreeRam(), DEC);

@@ -22,7 +22,13 @@
 
 #include <Arduino.h>
 
-#include "ColorRing_CC3000.h"
+#ifndef CORE_WILDFIRE
+	#include "ColorRing_CC3000.h"
+#else
+	#include "WildFire_CC3000.h"
+	#include "WildFire_CC3000_Server.h"
+#endif
+
 #include "utility/socket.h"
 
 class UDPServer {
