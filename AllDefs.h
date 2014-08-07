@@ -189,7 +189,7 @@
 
 // NTP Server
 #define NTP_GRAB_FREQ_MS 86400000  //24*60*60*1000 = 24 hours
-#define NTP_NUM_TRIES 5  // Try to get time from NTP server 5 times.
+#define NTP_NUM_TRIES 3  // Try to get time from NTP server 3 times.
 #define SECONDS_FROM_1970_TO_2000 946684800
 #define HOUR 0
 #define MIN 1

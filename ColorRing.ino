@@ -125,8 +125,8 @@ PixelColor inEcmColor(0,0,0);
 // NTP Server
 ColorRing_CC3000_Client ntpClient;
 const unsigned long
-  connectTimeout  = 15L * 1000L, // Max time to wait for server connection
-  responseTimeout = 15L * 1000L; // Max time to wait for data from server
+  connectTimeout  = 3L * 1000L, // Max time to wait for server connection
+  responseTimeout = 1L * 1000L; // Max time to wait for data from server
 bool ntpGrabbedOnce;
 unsigned long lastGrabFromNtpSketchTime;
 unsigned long lastGrabbedNtpTime;
@@ -418,7 +418,7 @@ void loop() {
 						delay(2000);  // pause for a bit. Will usually never hit this code, but if does, only once / day.
 					}
 				} else {
-					Serial.println(F("NTP SERVER GRAB TOTALLY FAILED. GIVING UP."));
+					Serial.println(F("NTP SERVER GRAB TOTALLY FAILED. GIVING UP (until next try)."));
 					// Pretend that we got the time, so we don't keep trying
 					ntpGrabbedOnce = true;
 					lastGrabFromNtpSketchTime = millis();
