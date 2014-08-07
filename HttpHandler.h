@@ -23,7 +23,12 @@
 	But I want to give credit to Marco because his code gave me a great working solution to start with - thank you Marco!
 */
 
-#include "Arduino.h"
+#include <Arduino.h>
+#ifndef CORE_WILDFIRE
+	#include <ColorRing_CC3000_Server.h>
+#else
+	#include <WildFire_CC3000_Server.h>
+#endif
 
 #define NUMBER_VARIABLES 21
 #define NUMBER_FUNCTIONS 4
@@ -76,7 +81,12 @@ public:
 		arguments = "";
 	}
 
+#ifndef CORE_WILDFIRE
 	void handle(ColorRing_CC3000_ClientRef client) {
+#else
+	void handle(WildFire_CC3000_ClientRef client) {
+#endif
+		
 		if (client.available()) {
 			// Handle request
 			handle_proto(client, true);
@@ -89,8 +99,13 @@ public:
 			reset_status();
 		} 
 	}
-
+	
+#ifndef CORE_WILDFIRE
 	void handle_proto(ColorRing_CC3000_ClientRef serial, bool headers) {
+#else
+	void handle_proto(WildFire_CC3000_ClientRef serial, bool headers) {
+#endif
+		
 		Serial.println("HttpHandler::handle_proto()");
 
 		// Check if there is data available to read
