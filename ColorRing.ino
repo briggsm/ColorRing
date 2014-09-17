@@ -1149,8 +1149,11 @@ void displayTimeToStrips() {
 			if (opModeOutside == OPMODE_CLOCK) {
 				strip = &outStrip;
 				if (handDispOut[clkHand] == 1) {
-					SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
-					handSsp.exec(NOSHOWSTRIP);
+					//SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+					//handSsp.exec(NOSHOWSTRIP);
+					SetSeqPixels *handSsp = new SetSeqPixels(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+					handSsp->exec(NOSHOWSTRIP);
+					delete(handSsp);
 				}
 			}
 		
@@ -1158,8 +1161,11 @@ void displayTimeToStrips() {
 			if (opModeInside == OPMODE_CLOCK) {
 				strip = &inStrip;
 				if (handDispIn[clkHand] == 1) {
-					SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
-					handSsp.exec(NOSHOWSTRIP);
+					//SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+					//handSsp.exec(NOSHOWSTRIP);
+					SetSeqPixels *handSsp = new SetSeqPixels(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+					handSsp->exec(NOSHOWSTRIP);
+					delete(handSsp);
 				}
 			}
 		}

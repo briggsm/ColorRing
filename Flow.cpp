@@ -194,8 +194,11 @@ void Flow::step(boolean isShowStrip) {
 
 void Flow::singleFlow(Adafruit_NeoPixel* strip, byte startPixelNum, byte endPixelNum, PixelColor pixelColor, boolean direction, byte numPixelsToSkip) {
 	// First Shift
-	Shift shift(strip, startPixelNum, endPixelNum, 0, 1, 0, 0, direction, NOWRAP, NONANIMATED);
-	shift.exec(NOSHOWSTRIP);
+	//Shift shift(strip, startPixelNum, endPixelNum, 0, 1, 0, 0, direction, NOWRAP, NONANIMATED);
+	//shift.exec(NOSHOWSTRIP);
+	Shift *shift = new Shift(strip, startPixelNum, endPixelNum, 0, 1, 0, 0, direction, NOWRAP, NONANIMATED);
+	shift->exec(NOSHOWSTRIP);
+	delete(shift);
 	
 	// Then set "Source" pixel
 	byte sourcePixelNum = direction ? startPixelNum : endPixelNum;
