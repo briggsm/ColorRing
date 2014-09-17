@@ -47,6 +47,9 @@
 #define ADAFRUIT_CC3000_VBAT  5
 #define ADAFRUIT_CC3000_CS    10
 
+// FFT
+#define ADC_CHANNEL 0
+
 // ========================
 // === EEPROM Addresses ===
 // ========================
@@ -132,6 +135,7 @@
 #define OPMODE_EXTERNAL 1
 #define OPMODE_CLOCK 2
 #define OPMODE_COLORED5S 3
+#define OPMODE_AUDIOVISUALIZER 4
 
 // === External Ctrl Modes ===
 #define EXTERNALCTRLMODE_STRIPCOLOR 0
