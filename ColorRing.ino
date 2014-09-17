@@ -268,6 +268,17 @@ void setup(void)
 	// === end FFT ===
 	
 
+	// === LED Strips ===
+	outStrip.begin();  // all off
+	outStrip.show();
+	inStrip.begin();  // all off
+	inStrip.show();
+
+	// Setup "show progress" steps during setup() function.
+	byte setupStep = 0;
+	strip = &outStrip;
+	clearStrip(strip);
+	showSetupProgress(setupStep++);
 
 	// Print out the EEPROM
 	eepromPrint(0x2E0, "hex");
@@ -280,6 +291,7 @@ void setup(void)
 
 	// Read all data from EEPROM
 	readAllFromEEPROM();
+	showSetupProgress(setupStep++);
 
 	// Init variables and expose them to HTTP Handler
 	// NOTE: REMEMBER TO CHANGE "#define NUMBER_VARIABLES" (in HttpHandler.h)!
@@ -320,6 +332,7 @@ void setup(void)
 	// Give name and ID to device
 	//hh.set_id("777");
 	hh.set_name("ColorRing");
+	showSetupProgress(setupStep++);
 	
 	// Set up CC3000 and get connected to the wireless network.
 	Serial.println(F("\nInitializing the CC3000..."));
@@ -328,12 +341,14 @@ void setup(void)
 		Serial.println(F("Couldn't begin()! Check your wiring?"));
 		while(1);
 	}
+	showSetupProgress(setupStep++);
 
 	Serial.println(F("\nDeleting old connection profiles"));
 	if (!cc3000.deleteProfiles()) {
 		Serial.println(F("Failed!"));
 		while(1);
 	}
+	showSetupProgress(setupStep++);
 
 	Serial.print(F("\nAttempting to connect to ")); Serial.println(WLAN_SSID);
 	if (!cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY)) {
@@ -341,6 +356,7 @@ void setup(void)
 		while(1);
 	}
 	Serial.println(F("Connected!"));
+	showSetupProgress(setupStep++);
 
 	//cc3000.setDHCP();
 
@@ -349,6 +365,7 @@ void setup(void)
 	{
 		delay(100);
 	}
+	showSetupProgress(setupStep++);
 
 	// Print CC3000 IP address. Enable if mDNS doesn't work
 	while (! displayConnectionDetails()) {
@@ -359,17 +376,13 @@ void setup(void)
 	if (!mdns.begin("colorring", cc3000)) {
 		while(1); 
 	}
+	showSetupProgress(setupStep++);
 
 	// Start server
 	httpServer.begin();
 	rtColorServer.begin();
 	Serial.println(F("Server(s) Listening for connections..."));
-
-	// === LED Strips ===
-	outStrip.begin();  // all off
-	outStrip.show();
-	inStrip.begin();  // all off
-	inStrip.show();
+	showSetupProgress(setupStep++);
 	
 	// NTP Server
 	CurrTime = DateTime(0);
@@ -1448,6 +1461,29 @@ unsigned long getTime(void) {
   }
   if(!t) Serial.println(F("error"));
   return t;
+}
+
+void showSetupProgress(byte step) {
+	// Light up LED's on outside strip, during setup(), just so we know we're making progress.
+	strip = &outStrip;
+	
+	PixelColor pc;
+	switch (step % 3) {
+		case 0:
+			pc = PixelColor(0xFF, 0x00, 0x00);  // Red
+			break;
+		case 1:
+			pc = PixelColor(0x00, 0xFF, 0x00);  // Green
+			break;
+		default:
+			pc = PixelColor(0x00, 0x00, 0xFF);  // Blue
+			break;
+	}
+	byte numSeq = 3;
+	for (byte i = 0; i < numSeq; i++) {
+		strip->setPixelColor(step * numSeq + i, pc.getLongVal());
+	}
+	strip->show();
 }
 
 ISR(ADC_vect) { // Audio-sampling interrupt
