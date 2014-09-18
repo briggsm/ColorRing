@@ -71,6 +71,9 @@ namespace std {
 	WildFire_CC3000 cc3000;
 	WildFire_CC3000_Server httpServer(LISTEN_PORT_HTTP);
 #endif
+
+//=== DEBUG ===
+#define SKIP_CC3000 true  // for normal use, should be false.
 	
 	
 // === FFT ===
@@ -89,14 +92,18 @@ int
 	colDiv[8];    // Used when filtering FFT output to 8 columns
 PROGMEM const uint8_t
 	  // This is low-level noise that's subtracted from each FFT output column:
-	  noise[64]={ 8,6,6,5,3,4,4,4,3,4,4,3,2,3,3,4,
+	  noise[64]={ 
+		  		  8,6,6,5,3,4,4,4,3,4,4,3,2,3,3,4,
+		  		//58,58,58,58,58,58,58,58,3,4,4,3,2,3,3,4,
 	              2,1,2,1,3,2,3,2,1,2,3,1,2,3,4,4,
 	              3,2,2,2,2,2,2,1,3,2,2,2,2,2,2,2,
 	              2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,4 },
 	  // These are scaling quotients for each FFT output column, sort of a
 	  // graphic EQ in reverse.  Most music is pretty heavy at the bass end.
 	  eq[64]={
-	    255, 175,218,225,220,198,147, 99, 68, 47, 33, 22, 14,  8,  4,  2,
+		  //255, 175,218,225,220,198,147, 99, 68, 47, 33, 22, 14,  8,  4,  2,
+		  //0,   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		  255,245,224,225,220,198,147, 99, 248, 247, 33, 22, 14,  8,  4,  2,
 	      0,   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
 	      0,   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
 	      0,   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
@@ -334,175 +341,180 @@ void setup(void)
 	hh.set_name("ColorRing");
 	showSetupProgress(setupStep++);
 	
-	// Set up CC3000 and get connected to the wireless network.
-	Serial.println(F("\nInitializing the CC3000..."));
-	if (!cc3000.begin())
-	{
-		Serial.println(F("Couldn't begin()! Check your wiring?"));
-		while(1);
-	}
-	showSetupProgress(setupStep++);
-
-	Serial.println(F("\nDeleting old connection profiles"));
-	if (!cc3000.deleteProfiles()) {
-		Serial.println(F("Failed!"));
-		while(1);
-	}
-	showSetupProgress(setupStep++);
-
-	Serial.print(F("\nAttempting to connect to ")); Serial.println(WLAN_SSID);
-	if (!cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY)) {
-		Serial.println(F("Failed!"));
-		while(1);
-	}
-	Serial.println(F("Connected!"));
-	showSetupProgress(setupStep++);
-
-	//cc3000.setDHCP();
-
-	Serial.println(F("Request DHCP"));
-	while (!cc3000.checkDHCP())
-	{
-		delay(100);
-	}
-	showSetupProgress(setupStep++);
-
-	// Print CC3000 IP address. Enable if mDNS doesn't work
-	while (! displayConnectionDetails()) {
-		delay(1000);
-	}
-
-	// Start multicast DNS responder
-	if (!mdns.begin("colorring", cc3000)) {
-		while(1); 
-	}
-	showSetupProgress(setupStep++);
-
-	// Start server
-	httpServer.begin();
-	rtColorServer.begin();
-	Serial.println(F("Server(s) Listening for connections..."));
-	showSetupProgress(setupStep++);
 	
-	// NTP Server
-	CurrTime = DateTime(0);
-	ntpGrabbedOnce = false;
-	ntpTriesRemaining = NTP_NUM_TRIES;
-	lastGrabFromNtpSketchTime = 0;
-	lastGrabbedNtpTime = 0;
-	lastManualSetTimeMS = 0;
-	lastGrabbedManualTime = 0;
-	lastSecondVal = 0;
+	if (!SKIP_CC3000) {
+		// Set up CC3000 and get connected to the wireless network.
+		Serial.println(F("\nInitializing the CC3000..."));
+		if (!cc3000.begin())
+		{
+			Serial.println(F("Couldn't begin()! Check your wiring?"));
+			while(1);
+		}
+		showSetupProgress(setupStep++);
+
+		Serial.println(F("\nDeleting old connection profiles"));
+		if (!cc3000.deleteProfiles()) {
+			Serial.println(F("Failed!"));
+			while(1);
+		}
+		showSetupProgress(setupStep++);
+
+		Serial.print(F("\nAttempting to connect to ")); Serial.println(WLAN_SSID);
+		if (!cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY)) {
+			Serial.println(F("Failed!"));
+			while(1);
+		}
+		Serial.println(F("Connected!"));
+		showSetupProgress(setupStep++);
+
+		//cc3000.setDHCP();
+
+		Serial.println(F("Request DHCP"));
+		while (!cc3000.checkDHCP())
+		{
+			delay(100);
+		}
+		showSetupProgress(setupStep++);
+
+		// Print CC3000 IP address. Enable if mDNS doesn't work
+		while (! displayConnectionDetails()) {
+			delay(1000);
+		}
+
+		// Start multicast DNS responder
+		if (!mdns.begin("colorring", cc3000)) {
+			while(1); 
+		}
+		showSetupProgress(setupStep++);
+
+		// Start server
+		httpServer.begin();
+		rtColorServer.begin();
+		Serial.println(F("Server(s) Listening for connections..."));
+		showSetupProgress(setupStep++);
+	
+		// NTP Server
+		CurrTime = DateTime(0);
+		ntpGrabbedOnce = false;
+		ntpTriesRemaining = NTP_NUM_TRIES;
+		lastGrabFromNtpSketchTime = 0;
+		lastGrabbedNtpTime = 0;
+		lastManualSetTimeMS = 0;
+		lastGrabbedManualTime = 0;
+		lastSecondVal = 0;
+	}
 
 	Serial.print(F("Free RAM End Setup: ")); Serial.println(getFreeRam(), DEC);
 
 }
 
 void loop() {
-  
-	//Serial.print("Free RAM loop: "); Serial.println(getFreeRam(), DEC);
-  
-	// Handle any multicast DNS requests
-	mdns.update();
-
-	//Serial.print("Free RAM Before http: "); Serial.println(getFreeRam(), DEC);
-	
-	// Handle http calls (for setting modes & stripCmds)
-#ifndef CORE_WILDFIRE
-	ColorRing_CC3000_ClientRef httpClient = httpServer.available();
-#else
-	WildFire_CC3000_ClientRef httpClient = httpServer.available();
-#endif
-	
-	hh.handle(httpClient);
-	
-	//Serial.print("Free RAM After http: "); Serial.println(getFreeRam(), DEC);
-	
-	// ===============================================
-	// === Handle all RealTime Color packets (UDP) ===
-	// ===============================================
-	PixelColor newColor;
-	byte colorUsage = COLOR_USAGE_NONE;
-	if (rtColorServer.handleNewColorPacket(newColor, colorUsage)) {
-		switch (colorUsage) {
-			case COLOR_USAGE_OUT_ECM:
-				outEcmColor = newColor;
-				break;
-			case COLOR_USAGE_IN_ECM:
-				inEcmColor = newColor;
-				break;
-			case COLOR_USAGE_OUT_COLORED5S:
-				OutColored5sColor = newColor;
-				break;
-			case COLOR_USAGE_IN_COLORED5S:
-				InColored5sColor = newColor;
-				break;
-			case COLOR_USAGE_HOUR_HAND:
-				HandColorHour = newColor;
-				clockRTColorChanged = true;
-				break;
-			case COLOR_USAGE_MIN_HAND:
-				HandColorMin = newColor;
-				clockRTColorChanged = true;
-				break;
-			case COLOR_USAGE_SEC_HAND:
-				HandColorSec = newColor;
-				clockRTColorChanged = true;
-				break;
-		}
-		// Note: for the PV's (Persistant Variables), DON'T update the EEPROM each time. Would probably burn out EEPROM too fast. Asking user to click Submit button to "lock it in".
-	}
-
-	// ===========================================================
-	// === Handle EXTERNAL Ctrl Mode (inside & outside strips) ===
-	// ===========================================================
 	bool isOutside;
 	byte opModeOutside = ((OpMode & 0xF0) >> 4);
 	byte opModeInside = OpMode & 0x0F;
 	
-	// Outside strip
-	if (opModeOutside == OPMODE_EXTERNAL) {
-		strip = &outStrip;
+	//Serial.print("Free RAM loop: "); Serial.println(getFreeRam(), DEC);
+	if (!SKIP_CC3000) {
+		// Handle any multicast DNS requests
+		mdns.update();
+	
+		//Serial.print("Free RAM Before http: "); Serial.println(getFreeRam(), DEC);
+	
+		// Handle http calls (for setting modes & stripCmds)
+		#ifndef CORE_WILDFIRE
+			ColorRing_CC3000_ClientRef httpClient = httpServer.available();
+		#else
+			WildFire_CC3000_ClientRef httpClient = httpServer.available();
+		#endif
+	
+		hh.handle(httpClient);
+	
+		//Serial.print("Free RAM After http: "); Serial.println(getFreeRam(), DEC);
+	
+	
+		// ===============================================
+		// === Handle all RealTime Color packets (UDP) ===
+		// ===============================================
+		PixelColor newColor;
+		byte colorUsage = COLOR_USAGE_NONE;
+		if (rtColorServer.handleNewColorPacket(newColor, colorUsage)) {
+			switch (colorUsage) {
+				case COLOR_USAGE_OUT_ECM:
+					outEcmColor = newColor;
+					break;
+				case COLOR_USAGE_IN_ECM:
+					inEcmColor = newColor;
+					break;
+				case COLOR_USAGE_OUT_COLORED5S:
+					OutColored5sColor = newColor;
+					break;
+				case COLOR_USAGE_IN_COLORED5S:
+					InColored5sColor = newColor;
+					break;
+				case COLOR_USAGE_HOUR_HAND:
+					HandColorHour = newColor;
+					clockRTColorChanged = true;
+					break;
+				case COLOR_USAGE_MIN_HAND:
+					HandColorMin = newColor;
+					clockRTColorChanged = true;
+					break;
+				case COLOR_USAGE_SEC_HAND:
+					HandColorSec = newColor;
+					clockRTColorChanged = true;
+					break;
+			}
+			// Note: for the PV's (Persistant Variables), DON'T update the EEPROM each time. Would probably burn out EEPROM too fast. Asking user to click Submit button to "lock it in".
+		}
+
+		// ===========================================================
+		// === Handle EXTERNAL Ctrl Mode (inside & outside strips) ===
+		// ===========================================================
 		
-		if (OutExternalCtrlMode == EXTERNALCTRLMODE_STRIPCOLOR) {
-			//EXTERNALCTRLMODE_STRIPCOLOR
-			byte numColorsInSeries = 1;
-			PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = outEcmColor;
-			SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
-			ecmSsp.exec(SHOWSTRIP);
-		} else {
-			// EXTERNALCTRLMODE_FLOW
-			lastOecmFlowColor = outEcmColor;
+		// Outside strip
+		if (opModeOutside == OPMODE_EXTERNAL) {
+			strip = &outStrip;
+		
+			if (OutExternalCtrlMode == EXTERNALCTRLMODE_STRIPCOLOR) {
+				//EXTERNALCTRLMODE_STRIPCOLOR
+				byte numColorsInSeries = 1;
+				PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = outEcmColor;
+				SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+				ecmSsp.exec(SHOWSTRIP);
+			} else {
+				// EXTERNALCTRLMODE_FLOW
+				lastOecmFlowColor = outEcmColor;
 			
-			if (millis() - lastOecmFlowMs > OutExternalCtrlModeFlowSpeed) {
-				lastOecmFlowMs = millis();
-				PixelColor colorSeriesArr[1] = lastOecmFlowColor;
-				Flow ecmFlow(strip, 0, NUM_LEDS-1, OutExternalCtrlModeFlowNumSections, 1, 1, 0, 0, 0, CW, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
-				ecmFlow.step(SHOWSTRIP); // or exec()
+				if (millis() - lastOecmFlowMs > OutExternalCtrlModeFlowSpeed) {
+					lastOecmFlowMs = millis();
+					PixelColor colorSeriesArr[1] = lastOecmFlowColor;
+					Flow ecmFlow(strip, 0, NUM_LEDS-1, OutExternalCtrlModeFlowNumSections, 1, 1, 0, 0, 0, CW, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
+					ecmFlow.step(SHOWSTRIP); // or exec()
+				}
 			}
 		}
-	}
 	
-	// Inside strip
-	if (opModeInside == OPMODE_EXTERNAL) {
-		strip = &inStrip;
+		// Inside strip
+		if (opModeInside == OPMODE_EXTERNAL) {
+			strip = &inStrip;
 		
-		if (InExternalCtrlMode == EXTERNALCTRLMODE_STRIPCOLOR) {
-			//EXTERNALCTRLMODE_STRIPCOLOR
-			byte numColorsInSeries = 1;
-			//PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = newColor;
-			PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = inEcmColor;
-			SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
-			ecmSsp.exec(SHOWSTRIP);
-		} else {
-			// EXTERNALCTRLMODE_FLOW
-			lastIecmFlowColor = inEcmColor;
+			if (InExternalCtrlMode == EXTERNALCTRLMODE_STRIPCOLOR) {
+				//EXTERNALCTRLMODE_STRIPCOLOR
+				byte numColorsInSeries = 1;
+				//PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = newColor;
+				PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = inEcmColor;
+				SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+				ecmSsp.exec(SHOWSTRIP);
+			} else {
+				// EXTERNALCTRLMODE_FLOW
+				lastIecmFlowColor = inEcmColor;
 			
-			if (millis() - lastIecmFlowMs > InExternalCtrlModeFlowSpeed) {
-				lastIecmFlowMs = millis();
-				PixelColor colorSeriesArr[1] = lastIecmFlowColor;
-				Flow ecmFlow(strip, 0, NUM_LEDS-1, InExternalCtrlModeFlowNumSections, 1, 1, 0, 0, 0, CW, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
-				ecmFlow.step(SHOWSTRIP); // or exec()
+				if (millis() - lastIecmFlowMs > InExternalCtrlModeFlowSpeed) {
+					lastIecmFlowMs = millis();
+					PixelColor colorSeriesArr[1] = lastIecmFlowColor;
+					Flow ecmFlow(strip, 0, NUM_LEDS-1, InExternalCtrlModeFlowNumSections, 1, 1, 0, 0, 0, CW, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
+					ecmFlow.step(SHOWSTRIP); // or exec()
+				}
 			}
 		}
 	}
@@ -527,6 +539,7 @@ void loop() {
 			inPreviousMillis = currentMillis;
 		}
 	}
+	
 	
 	// =============
 	// === CLOCK ===
@@ -656,6 +669,8 @@ void loop() {
 
 		AudioVisualizer aVis = AudioVisualizer();  // init & clear
 	
+		//Serial.print("========== Frame (colCount): "); Serial.println(colCount);
+	
 		// Downsample spectrum output to 8 columns:
 		for(x=0; x<8; x++) {
 			data   = (uint8_t *)pgm_read_word(&colData[x]);
@@ -669,6 +684,8 @@ void loop() {
 				if(col[x][i] < minLvl)      minLvl = col[x][i];
 				else if(col[x][i] > maxLvl) maxLvl = col[x][i];
 			}
+			//Serial.print("minLvl:"); Serial.print(minLvl); Serial.print(", maxLvl:"); Serial.println(maxLvl);
+			
 			// minLvl and maxLvl indicate the extents of the FFT output, used
 			// for vertically scaling the output graph (so it looks interesting
 			// regardless of volume level).  If they're too close together though
@@ -678,11 +695,15 @@ void loop() {
 			if((maxLvl - minLvl) < 8) maxLvl = minLvl + 8;
 			minLvlAvg[x] = (minLvlAvg[x] * 7 + minLvl) >> 3; // Dampen min/max levels
 			maxLvlAvg[x] = (maxLvlAvg[x] * 7 + maxLvl) >> 3; // (fake rolling average)
+			//Serial.print("minLvlAvgX:"); Serial.print(minLvlAvg[x]); Serial.print(", maxLvlAvgX:"); Serial.println(maxLvlAvg[x]);
 
+			//Serial.print("col[x][colCount]:"); Serial.println(col[x][colCount]);
+			
 			// Second fixed-point scale based on dynamic min/max levels:
 			level = 10L * (col[x][colCount] - minLvlAvg[x]) / (long)(maxLvlAvg[x] - minLvlAvg[x]);
 
 			//Serial.print("x:"); Serial.print(x); Serial.print(", level:"); Serial.println(level);
+			
 			// Clip output and convert to byte:
 			if(level < 0L)      c = 0;
 			else if(level > 10) c = 10; // Allow dot to go a couple pixels off top

@@ -22,43 +22,65 @@
 
 AudioVisualizer::AudioVisualizer() {
 	// Clear
-	for (byte i = 0; i < 60; i++) {
-		visStrip[i] = false;
+	for (byte i = 0; i < 64; i++) {
+		visMatrix[i] = false;
 	}
 }
 
 void AudioVisualizer::fillLine(byte section, byte height) {
 	for (byte i = 0; i < height; i++) {
-		visStrip[section * 8 + i] = true;
+		if (i < 8) {
+			visMatrix[section * 8 + i] = true;
+		}
 	}
 }
 
 void AudioVisualizer::fillPeakPixel(byte section, byte height) {
-	visStrip[section * 8 + height] = true;
+	if (height > 0 && height <= 8) {
+		visMatrix[section * 8 + height - 1] = true;
+	}
 }
 
 void AudioVisualizer::writeToStrip(Adafruit_NeoPixel* strip) {
 	PixelColor pc;
-	for (byte i = 0; i < strip->numPixels(); i++) {
-		if (visStrip[i]) {
-			switch (i % 8) {
-				case 0:
-				case 1:
-				case 2:
-					pc = PixelColor(0x00, 0xFF, 0x00);  // Green
-					break;
-				case 3:
-				case 4:
-					pc = PixelColor(0xFF, 0xFF, 0x00);  // Yellow
-					break;
-				default:
-					pc = PixelColor(0xFF, 0x00, 0x00);  // Red
-					break;
+	byte switchExpr;
+	for (byte i = 0; i < 60; i++) {
+		if (i < 30) {
+			if (visMatrix[29 - i]) {
+				switchExpr = (29 - i) % 8;
+			} else {
+				//continue;  // to next for loop iter
+				switchExpr = 8;  // Black
 			}
-			strip->setPixelColor(i, pc.getLongVal());
 		} else {
-			// Just incase
-			strip->setPixelColor(i, 0,0,0);  // Black
+			// i >= 30
+			if (visMatrix[i+2]) {
+				switchExpr = (i + 2) % 8;
+			} else {
+				//continue;  // to next for loop iter
+				switchExpr = 8;  // Black
+			}
 		}
+		
+		switch (switchExpr) {
+			case 0:
+			case 1:
+			case 2:
+				pc = PixelColor(0x00, 0xFF, 0x00);  // Green
+				break;
+			case 3:
+			case 4:
+				pc = PixelColor(0x00, 0x00, 0xFF);  // Blue
+				break;
+			case 5:
+			case 6:
+			case 7:
+				pc = PixelColor(0xFF, 0x00, 0x00);  // Red
+				break;
+			default:
+				pc = PixelColor(0x00, 0x00, 0x00);  // Black
+				break;
+		}
+		strip->setPixelColor(i, pc.getLongVal());
 	}
 }
