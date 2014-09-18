@@ -25,7 +25,7 @@
 
 class AudioVisualizer {
 private:
-	bool visStrip[60];	
+	bool visMatrix[64];	
 public:
 	AudioVisualizer();
 	void fillLine(byte section, byte height);
