@@ -136,6 +136,7 @@
 #define OPMODE_CLOCK 2
 #define OPMODE_COLORED5S 3
 #define OPMODE_AUDIOVISUALIZER 4
+#define OPMODE_AUDIOLEVEL 5
 
 // === External Ctrl Modes ===
 #define EXTERNALCTRLMODE_STRIPCOLOR 0
@@ -198,6 +199,14 @@
 #define HOUR 0
 #define MIN 1
 #define SEC 2
+
+#define RED PixelColor(255,0,0)
+#define ORANGE PixelColor(255,128,0)
+#define YELLOW PixelColor(255,255,0)
+#define GREEN PixelColor(0,255,0)
+#define BLUE PixelColor(0,0,255)
+#define VIOLET PixelColor(0x4B,0x00,0x82)
+
 
 
 #endif  // ALLDEFS_H
