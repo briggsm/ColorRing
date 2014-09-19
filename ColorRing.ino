@@ -767,12 +767,20 @@ void loop() {
 			clearStrip(strip);
 		
 			PixelColor colorSeriesArr[6];
+			/*
 			colorSeriesArr[0] = RED;
 			colorSeriesArr[1] = ORANGE;
 			colorSeriesArr[2] = YELLOW;
 			colorSeriesArr[3] = GREEN;
 			colorSeriesArr[4] = BLUE;
 			colorSeriesArr[5] = VIOLET;
+			*/
+			colorSeriesArr[0] = BLUE;
+			colorSeriesArr[1] = GREEN;
+			colorSeriesArr[2] = YELLOW;
+			colorSeriesArr[3] = ORANGE;
+			colorSeriesArr[4] = VIOLET;
+			colorSeriesArr[5] = RED;
 			SetSeqPixels *audioLevelSsp = new SetSeqPixels(strip, 0, 10, 1, 0, stripLevel, 0, 0, DESTRUCTIVE, CW, NONANIMATED, CLEAR, GRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 6, colorSeriesArr); //Red at beginning
 			//SetSeqPixels *audioLevelSsp = new SetSeqPixels(strip, stripLevel, 10, 1, 0, stripLevel, 0, 0, DESTRUCTIVE, CCW, NONANIMATED, CLEAR, GRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 6, colorSeriesArr); // Red at end
 			audioLevelSsp->exec(SHOWSTRIP);
