@@ -29,6 +29,7 @@ SetSeqPixels::SetSeqPixels(Adafruit_NeoPixel* strip,
 						byte numPixelsEachColor,
 						byte colorSeriesNumIter,
 						byte numPixelsToSkip,
+						word numIter,
 						word animDelay,
 						word pauseAfter,
 						
@@ -43,7 +44,7 @@ SetSeqPixels::SetSeqPixels(Adafruit_NeoPixel* strip,
 						byte numColorsInSeries,
 						PixelColor *colorSeriesArr)
 {
-	init(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
+	init(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, numIter, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
 }
 
 SetSeqPixels::SetSeqPixels(Adafruit_NeoPixel* strip, byte* stripCmdArray) {
@@ -52,12 +53,13 @@ SetSeqPixels::SetSeqPixels(Adafruit_NeoPixel* strip, byte* stripCmdArray) {
 	byte numPixelsEachColor = stripCmdArray[2];
 	byte colorSeriesNumIter = stripCmdArray[3];
 	byte numPixelsToSkip = stripCmdArray[4];
+	word numIter = (stripCmdArray[5] << 8) + stripCmdArray[6];
 		
-	word animDelay = (stripCmdArray[5] << 8) + stripCmdArray[6];
-	word pauseAfter = (stripCmdArray[7] << 8) + stripCmdArray[8];
+	word animDelay = (stripCmdArray[7] << 8) + stripCmdArray[8];
+	word pauseAfter = (stripCmdArray[9] << 8) + stripCmdArray[10];
 	
 	// boolBits
-	byte boolBits = stripCmdArray[9];
+	byte boolBits = stripCmdArray[11];
 	/*
 	bool destructive = bitChecker(BOOLBIT_DESTRUCTIVE, boolBits);
 	bool direction = bitChecker(BOOLBIT_DIRECTION, boolBits);
@@ -70,8 +72,8 @@ SetSeqPixels::SetSeqPixels(Adafruit_NeoPixel* strip, byte* stripCmdArray) {
 	setBoolBitVars(boolBits, destructive, direction, wrap, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor);
 	
 	// colorSeriesArr
-	byte numColorsInSeries = stripCmdArray[10];
-	byte csaFirstBytePos = 11;
+	byte numColorsInSeries = stripCmdArray[12];
+	byte csaFirstBytePos = 13;
 	//byte maxNumColors = (MAX_STRIPCMD_SIZE - csaFirstBytePos) / 3;  // stripCmd's are 32-bytes total (MAX_STRIPCMD_SIZE).
 	//PixelColor colorSeriesArr[maxNumColors];
 	for (int i = 0; i < numColorsInSeries; i++) {
@@ -79,7 +81,7 @@ SetSeqPixels::SetSeqPixels(Adafruit_NeoPixel* strip, byte* stripCmdArray) {
 		colorSeriesArr[i] = PixelColor(stripCmdArray[bOffset], stripCmdArray[bOffset+1], stripCmdArray[bOffset+2]);
 	}
 	
-	init(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
+	init(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, numIter, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
 }
 
 void SetSeqPixels::init(Adafruit_NeoPixel* strip,
@@ -88,6 +90,7 @@ void SetSeqPixels::init(Adafruit_NeoPixel* strip,
 						byte numPixelsEachColor,
 						byte colorSeriesNumIter,
 						byte numPixelsToSkip,
+						word numIter,
 						word animDelay,
 						word pauseAfter,
 						
@@ -133,7 +136,12 @@ void SetSeqPixels::init(Adafruit_NeoPixel* strip,
 	// Init other Variables
 	this->currIteration = 0;
 	this->currPixelNum = startPixelNum;
-	this->numIter = numColorsInSeries * numPixelsEachColor * colorSeriesNumIter;
+	if (numIter == ITER_ENOUGH) {
+		this->numIter = numColorsInSeries * numPixelsEachColor * colorSeriesNumIter;
+	} else {
+		// to cut the # of iter's short.
+		this->numIter = numIter;
+	}
 	//this->inOutStr = strip->getPin() == OUT_STRIP_PIN ? "OUTSIDE" : "INSIDE";
 }
 

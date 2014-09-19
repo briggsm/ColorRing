@@ -42,6 +42,7 @@ public:
 						byte numPixelsEachColor,
 						byte colorSeriesNumIter,
 						byte numPixelsToSkip,
+						word numIter,
 						word animDelay,
 						word pauseAfter,
 						
@@ -64,6 +65,7 @@ public:
 						byte numPixelsEachColor,
 						byte colorSeriesNumIter,
 						byte numPixelsToSkip,
+						word numIter,
 						word animDelay,
 						word pauseAfter,
 						

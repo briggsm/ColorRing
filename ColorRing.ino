@@ -82,7 +82,7 @@ complex_t     bfly_buff[FFT_N];  // FFT "butterfly" buffer
 uint16_t      spectrum[FFT_N/2]; // Spectrum output buffer
 volatile byte samplePos = 0;     // Buffer position counter
 byte
-	peak[8],      // Peak level of each column; used for falling dots
+	//peak[8],      // Peak level of each column; used for falling dots
 	dotCount = 0, // Frame counter for delaying dot-falling speed
 	colCount = 0; // Frame counter for storing past column data
 int
@@ -241,11 +241,11 @@ void setup(void)
 	cout << F("Free RAM Start Setup: ") << getFreeRam() << endl;
 	
 	
-	/*
+	
 	// === FFT ===
 	uint8_t i, j, nBins, binNum, *data;
 	
-	memset(peak, 0, sizeof(peak));
+	//memset(peak, 0, sizeof(peak));
 	memset(col , 0, sizeof(col));
 	
 	for(i=0; i<8; i++) {
@@ -273,7 +273,7 @@ void setup(void)
 
 	sei(); // Enable interrupts
 	// === end FFT ===
-	*/
+	
 
 	// === LED Strips ===
 	outStrip.begin();  // all off
@@ -479,7 +479,8 @@ void loop() {
 				//EXTERNALCTRLMODE_STRIPCOLOR
 				byte numColorsInSeries = 1;
 				PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = outEcmColor;
-				SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+				//SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+				SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 				ecmSsp.exec(SHOWSTRIP);
 			} else {
 				// EXTERNALCTRLMODE_FLOW
@@ -503,7 +504,8 @@ void loop() {
 				byte numColorsInSeries = 1;
 				//PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = newColor;
 				PixelColor colorSeriesArr[numColorsInSeries]; colorSeriesArr[0] = inEcmColor;
-				SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+				//SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+				SetSeqPixels ecmSsp(strip, 0, NUM_LEDS, 1, 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 				ecmSsp.exec(SHOWSTRIP);
 			} else {
 				// EXTERNALCTRLMODE_FLOW
@@ -613,6 +615,7 @@ void loop() {
 		byte numPixelsEachColor = 1;
 		byte colorSeriesNumIter = 12;
 		byte numPixelsToSkip = 4;
+		word numIter = ITER_ENOUGH;
 		word animDelay = 0;
 		word pauseAfter = 0;
 		
@@ -629,26 +632,29 @@ void loop() {
 		if (opModeOutside == OPMODE_COLORED5S) {
 			strip = &outStrip;
 			colorSeriesArr[0] = OutColored5sColor;
-		
-			SetSeqPixels ssp(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
+			SetSeqPixels ssp(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, numIter, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
 			ssp.exec(SHOWSTRIP);
 		}
 	
 		if (opModeInside == OPMODE_COLORED5S) {
 			strip = &inStrip;
 			colorSeriesArr[0] = InColored5sColor;
-		
-			SetSeqPixels ssp(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
+			SetSeqPixels ssp(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, numIter, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
 			ssp.exec(SHOWSTRIP);
 		}
 	}
+	
+	// ==========================
+	// === Microphone related ===
+	// ==========================
 	
 	// ==============================
 	// === Audio Visualizer / FFT ===
 	// ==============================
 	//Serial.println("Audio Visualizer loop");
-	if (opModeOutside == OPMODE_AUDIOVISUALIZER || opModeInside == OPMODE_AUDIOVISUALIZER) {
-		//Serial.println("av inside");
+	if (opModeOutside == OPMODE_AUDIOVISUALIZER || opModeInside == OPMODE_AUDIOVISUALIZER ||
+		opModeOutside == OPMODE_AUDIOLEVEL 		|| opModeInside == OPMODE_AUDIOLEVEL) {
+		//Serial.println("MIC related");
 		uint8_t  i, x, L, *data, nBins, binNum, weighting, c;
 		uint16_t minLvl, maxLvl;
 		int      level, y, sum;
@@ -709,34 +715,11 @@ void loop() {
 			else if(level > 10) c = 10; // Allow dot to go a couple pixels off top
 			else                c = (uint8_t)level;
 
-			if(c > peak[x]) peak[x] = c; // Keep dot on top
+			//if(c > peak[x]) peak[x] = c; // Keep dot on top
 
-			/*
-			if(peak[x] <= 0) { // Empty column?
-				matrix.drawLine(x, 0, x, 7, LED_OFF);
-				continue;
-			} else if(c < 8) { // Partial column?
-				matrix.drawLine(x, 0, x, 7 - c, LED_OFF);
-			}
-			*/
 			aVis.fillLine(x, c);  // Fill Section 'x' up to 'c' LEDs
 
-			// The 'peak' dot color varies, but doesn't necessarily match
-			// the three screen regions...yellow has a little extra influence.
-		
-			//y = 8 - peak[x];
-			/*
-			if(y < 2)      matrix.drawPixel(x, y, LED_RED);
-			else if(y < 6) matrix.drawPixel(x, y, LED_YELLOW);
-			else           matrix.drawPixel(x, y, LED_GREEN);
-			*/
-			/*
-			if(y < 2)      aVis.fillPeakPixel(x, y);
-			else if(y < 6) aVis.fillPeakPixel(x, y);
-			else           aVis.fillPeakPixel(x, y);
-			*/
-			//aVis.fillPeakPixel(x, y);
-			aVis.fillPeakPixel(x, peak[x]);
+			//aVis.fillPeakPixel(x, peak[x]);
 		}
 
 		if (opModeOutside == OPMODE_AUDIOVISUALIZER) {
@@ -750,6 +733,7 @@ void loop() {
 			strip->show();
 		}
 	
+		/*
 		// Every third frame, make the peak pixels drop by 1:
 		if(++dotCount >= 3) {
 			dotCount = 0;
@@ -757,93 +741,45 @@ void loop() {
 				if(peak[x] > 0) peak[x]--;
 			}
 		}
-
+		*/
+		
 		if(++colCount >= 10) colCount = 0;
-	}
-	// === end AudioVisualizer / FFT ===
-	
-	// ===================
-	// === Audio Level ===
-	// ===================
-	if (opModeOutside == OPMODE_AUDIOLEVEL || opModeInside == OPMODE_AUDIOLEVEL) {
-		//Serial.println("al!");
 		
-		const int sampleWindow = 25; // Sample window width in mS (50 mS = 20Hz)
-		unsigned int sample;
-		
-	    unsigned long startMillis= millis();  // Start of sample window
-	    unsigned int peakToPeak = 0;   // peak-to-peak level
-
-	    unsigned int signalMax = 0;
-	    unsigned int signalMin = 1024;
-
-	    // collect data for 50 mS
-	    while (millis() - startMillis < sampleWindow) {
-			//Serial.println("in while");
+		// ===================
+		// === Audio Level ===
+		// ===================
+		// NOTE: Doing audio HERE because analogRead() does not work (freezes) when the ADC interrupts are enabled (which are used for FFT).
+		//		This is unfortunate, 'cuz the FFT stuff is way overkill just to get amplitude, but it still works (pretty well).
+		if (opModeOutside == OPMODE_AUDIOLEVEL || opModeInside == OPMODE_AUDIOLEVEL) {
+			//Serial.println("Audio Level");
+			float amp = aVis.getAmplitude();  // as %'age (0-100)
+			//Serial.print("amp:"); Serial.println(amp);
+			byte stripLevel = (byte)(amp / 100.0 * 60);
+			//Serial.print("stripLevel:"); Serial.println(stripLevel);
 			
-			sample = analogRead(0);
-			//Serial.print("sample:"); Serial.println(sample);
-	        if (sample < 1024) {  // toss out spurious readings
-				if (sample > signalMax)	{
-					signalMax = sample;  // save just the max levels
-				} else if (sample < signalMin) {
-					signalMin = sample;  // save just the min levels
-				}
+			if (opModeOutside == OPMODE_AUDIOLEVEL) {
+				strip = &outStrip;
 			}
+			if (opModeInside == OPMODE_AUDIOLEVEL) {
+				strip = &inStrip;
+			}
+			
+			clearStrip(strip);
+		
+			PixelColor colorSeriesArr[6];
+			colorSeriesArr[0] = RED;
+			colorSeriesArr[1] = ORANGE;
+			colorSeriesArr[2] = YELLOW;
+			colorSeriesArr[3] = GREEN;
+			colorSeriesArr[4] = BLUE;
+			colorSeriesArr[5] = VIOLET;
+			SetSeqPixels *audioLevelSsp = new SetSeqPixels(strip, 0, 10, 1, 0, stripLevel, 0, 0, DESTRUCTIVE, CW, NONANIMATED, CLEAR, GRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 6, colorSeriesArr); //Red at beginning
+			//SetSeqPixels *audioLevelSsp = new SetSeqPixels(strip, stripLevel, 10, 1, 0, stripLevel, 0, 0, DESTRUCTIVE, CCW, NONANIMATED, CLEAR, GRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 6, colorSeriesArr); // Red at end
+			audioLevelSsp->exec(SHOWSTRIP);
+			delete(audioLevelSsp);
 		}
-	    peakToPeak = signalMax - signalMin;  // max - min = peak-peak amplitude
-		//Serial.print("p2p:"); Serial.println(peakToPeak);
-	    double volts = (peakToPeak * 3.3) / 1024;  // convert to volts
-		double stripLevel = volts / 3.3 * 60;
-		//Serial.print("stripLevel:"); Serial.println(stripLevel);
-		
-		if (opModeOutside == OPMODE_AUDIOLEVEL) {
-			strip = &outStrip;
-		}
-		if (opModeInside == OPMODE_AUDIOLEVEL) {
-			strip = &inStrip;
-		}
-		
-		PixelColor colorSeriesArr[1];
-		//colorSeriesArr[0] = PixelColor(255,0,0);
-		colorSeriesArr[0] = GREEN;
-		
-		/*
-		colorSeriesArr[0] = RED;
-		colorSeriesArr[1] = ORANGE;
-		colorSeriesArr[2] = YELLOW;
-		colorSeriesArr[3] = GREEN;
-		colorSeriesArr[4] = BLUE;
-		colorSeriesArr[5] = VIOLET;
-		*/
-		
-		/*
-		Adafruit_NeoPixel* strip,
-		byte startPixelNum,
-		byte numPixelsEachColor,
-		byte colorSeriesNumIter,
-		byte numPixelsToSkip,
-		word animDelay,
-		word pauseAfter,
-
-		// boolBits
-		bool destructive,
-		bool direction,
-		bool isAnim,
-		bool clearStripBefore,
-		bool gradiate,
-		bool gradiateLastPixelFirstColor,
-
-		byte numColorsInSeries,
-		PixelColor *colorSeriesArr);
-		*/
-		//SetSeqPixels *audioLevelSsp = new SetSeqPixels(strip, 0, 10, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, CLEAR, GRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 6, colorSeriesArr);
-		SetSeqPixels *audioLevelSsp = new SetSeqPixels(strip, 0, 1, stripLevel, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, CLEAR, GRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
-		audioLevelSsp->exec(SHOWSTRIP);
-		delete(audioLevelSsp);
 	}
-	
-	
+	// === end MICROPHONE related ===
 }
 
 // Print connection details of the CC3000 chip
@@ -1486,7 +1422,7 @@ void displayTimeToStrips() {
 				if (handDispOut[clkHand] == 1) {
 					//SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 					//handSsp.exec(NOSHOWSTRIP);
-					SetSeqPixels *handSsp = new SetSeqPixels(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+					SetSeqPixels *handSsp = new SetSeqPixels(strip, startPixelNum, 1, handSize[clkHand], 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 					handSsp->exec(NOSHOWSTRIP);
 					delete(handSsp);
 				}
@@ -1498,7 +1434,7 @@ void displayTimeToStrips() {
 				if (handDispIn[clkHand] == 1) {
 					//SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 					//handSsp.exec(NOSHOWSTRIP);
-					SetSeqPixels *handSsp = new SetSeqPixels(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+					SetSeqPixels *handSsp = new SetSeqPixels(strip, startPixelNum, 1, handSize[clkHand], 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 					handSsp->exec(NOSHOWSTRIP);
 					delete(handSsp);
 				}
