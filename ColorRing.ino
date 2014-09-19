@@ -73,7 +73,7 @@ namespace std {
 #endif
 
 //=== DEBUG ===
-#define SKIP_CC3000 true  // for normal use, should be false.
+#define SKIP_CC3000 false  // for normal use, should be false.
 	
 	
 // === FFT ===
