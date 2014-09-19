@@ -73,7 +73,7 @@ namespace std {
 #endif
 
 //=== DEBUG ===
-#define SKIP_CC3000 false  // for normal use, should be false.
+#define SKIP_CC3000 true  // for normal use, should be false.
 	
 	
 // === FFT ===
@@ -241,7 +241,7 @@ void setup(void)
 	cout << F("Free RAM Start Setup: ") << getFreeRam() << endl;
 	
 	
-	
+	/*
 	// === FFT ===
 	uint8_t i, j, nBins, binNum, *data;
 	
@@ -273,7 +273,7 @@ void setup(void)
 
 	sei(); // Enable interrupts
 	// === end FFT ===
-	
+	*/
 
 	// === LED Strips ===
 	outStrip.begin();  // all off
@@ -765,11 +765,10 @@ void loop() {
 	// ===================
 	// === Audio Level ===
 	// ===================
-	/*
 	if (opModeOutside == OPMODE_AUDIOLEVEL || opModeInside == OPMODE_AUDIOLEVEL) {
-		Serial.println("al!");
+		//Serial.println("al!");
 		
-		const int sampleWindow = 50; // Sample window width in mS (50 mS = 20Hz)
+		const int sampleWindow = 25; // Sample window width in mS (50 mS = 20Hz)
 		unsigned int sample;
 		
 	    unsigned long startMillis= millis();  // Start of sample window
@@ -780,10 +779,10 @@ void loop() {
 
 	    // collect data for 50 mS
 	    while (millis() - startMillis < sampleWindow) {
-			Serial.println("in while");
+			//Serial.println("in while");
 			
 			sample = analogRead(0);
-			Serial.print("sample:"); Serial.println(sample);
+			//Serial.print("sample:"); Serial.println(sample);
 	        if (sample < 1024) {  // toss out spurious readings
 				if (sample > signalMax)	{
 					signalMax = sample;  // save just the max levels
@@ -793,30 +792,57 @@ void loop() {
 			}
 		}
 	    peakToPeak = signalMax - signalMin;  // max - min = peak-peak amplitude
-		Serial.print("p2p:"); Serial.println(peakToPeak);
+		//Serial.print("p2p:"); Serial.println(peakToPeak);
 	    double volts = (peakToPeak * 3.3) / 1024;  // convert to volts
 		double stripLevel = volts / 3.3 * 60;
+		//Serial.print("stripLevel:"); Serial.println(stripLevel);
 		
-		if (opModeOutside == OPMODE_AUDIOVISUALIZER) {
+		if (opModeOutside == OPMODE_AUDIOLEVEL) {
 			strip = &outStrip;
 		}
-		if (opModeInside == OPMODE_AUDIOVISUALIZER) {
+		if (opModeInside == OPMODE_AUDIOLEVEL) {
 			strip = &inStrip;
 		}
 		
-		PixelColor colorSeriesArr[6];
+		PixelColor colorSeriesArr[1];
 		//colorSeriesArr[0] = PixelColor(255,0,0);
+		colorSeriesArr[0] = GREEN;
+		
+		/*
 		colorSeriesArr[0] = RED;
 		colorSeriesArr[1] = ORANGE;
 		colorSeriesArr[2] = YELLOW;
 		colorSeriesArr[3] = GREEN;
 		colorSeriesArr[4] = BLUE;
 		colorSeriesArr[5] = VIOLET;
-		SetSeqPixels *audioLevelSsp = new SetSeqPixels(strip, 0, 10, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, CLEAR, GRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 6, colorSeriesArr);
+		*/
+		
+		/*
+		Adafruit_NeoPixel* strip,
+		byte startPixelNum,
+		byte numPixelsEachColor,
+		byte colorSeriesNumIter,
+		byte numPixelsToSkip,
+		word animDelay,
+		word pauseAfter,
+
+		// boolBits
+		bool destructive,
+		bool direction,
+		bool isAnim,
+		bool clearStripBefore,
+		bool gradiate,
+		bool gradiateLastPixelFirstColor,
+
+		byte numColorsInSeries,
+		PixelColor *colorSeriesArr);
+		*/
+		//SetSeqPixels *audioLevelSsp = new SetSeqPixels(strip, 0, 10, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, CLEAR, GRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 6, colorSeriesArr);
+		SetSeqPixels *audioLevelSsp = new SetSeqPixels(strip, 0, 1, stripLevel, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, CLEAR, GRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
 		audioLevelSsp->exec(SHOWSTRIP);
 		delete(audioLevelSsp);
 	}
-	*/
+	
 	
 }
 
