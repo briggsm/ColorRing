@@ -241,7 +241,7 @@ void setup(void)
 	cout << F("Free RAM Start Setup: ") << getFreeRam() << endl;
 	
 	
-	
+	/*
 	// === FFT ===
 	uint8_t i, j, nBins, binNum, *data;
 	
@@ -273,7 +273,7 @@ void setup(void)
 
 	sei(); // Enable interrupts
 	// === end FFT ===
-	
+	*/
 
 	// === LED Strips ===
 	outStrip.begin();  // all off
@@ -761,6 +761,89 @@ void loop() {
 		if(++colCount >= 10) colCount = 0;
 	}
 	// === end AudioVisualizer / FFT ===
+	
+	// ===================
+	// === Audio Level ===
+	// ===================
+	if (opModeOutside == OPMODE_AUDIOLEVEL || opModeInside == OPMODE_AUDIOLEVEL) {
+		//Serial.println("al!");
+		
+		const int sampleWindow = 25; // Sample window width in mS (50 mS = 20Hz)
+		unsigned int sample;
+		
+	    unsigned long startMillis= millis();  // Start of sample window
+	    unsigned int peakToPeak = 0;   // peak-to-peak level
+
+	    unsigned int signalMax = 0;
+	    unsigned int signalMin = 1024;
+
+	    // collect data for 50 mS
+	    while (millis() - startMillis < sampleWindow) {
+			//Serial.println("in while");
+			
+			sample = analogRead(0);
+			//Serial.print("sample:"); Serial.println(sample);
+	        if (sample < 1024) {  // toss out spurious readings
+				if (sample > signalMax)	{
+					signalMax = sample;  // save just the max levels
+				} else if (sample < signalMin) {
+					signalMin = sample;  // save just the min levels
+				}
+			}
+		}
+	    peakToPeak = signalMax - signalMin;  // max - min = peak-peak amplitude
+		//Serial.print("p2p:"); Serial.println(peakToPeak);
+	    double volts = (peakToPeak * 3.3) / 1024;  // convert to volts
+		double stripLevel = volts / 3.3 * 60;
+		//Serial.print("stripLevel:"); Serial.println(stripLevel);
+		
+		if (opModeOutside == OPMODE_AUDIOLEVEL) {
+			strip = &outStrip;
+		}
+		if (opModeInside == OPMODE_AUDIOLEVEL) {
+			strip = &inStrip;
+		}
+		
+		PixelColor colorSeriesArr[1];
+		//colorSeriesArr[0] = PixelColor(255,0,0);
+		colorSeriesArr[0] = GREEN;
+		
+		/*
+		colorSeriesArr[0] = RED;
+		colorSeriesArr[1] = ORANGE;
+		colorSeriesArr[2] = YELLOW;
+		colorSeriesArr[3] = GREEN;
+		colorSeriesArr[4] = BLUE;
+		colorSeriesArr[5] = VIOLET;
+		*/
+		
+		/*
+		Adafruit_NeoPixel* strip,
+		byte startPixelNum,
+		byte numPixelsEachColor,
+		byte colorSeriesNumIter,
+		byte numPixelsToSkip,
+		word animDelay,
+		word pauseAfter,
+
+		// boolBits
+		bool destructive,
+		bool direction,
+		bool isAnim,
+		bool clearStripBefore,
+		bool gradiate,
+		bool gradiateLastPixelFirstColor,
+
+		byte numColorsInSeries,
+		PixelColor *colorSeriesArr);
+		*/
+		//SetSeqPixels *audioLevelSsp = new SetSeqPixels(strip, 0, 10, 1, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, CLEAR, GRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 6, colorSeriesArr);
+		SetSeqPixels *audioLevelSsp = new SetSeqPixels(strip, 0, 1, stripLevel, 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, CLEAR, GRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
+		audioLevelSsp->exec(SHOWSTRIP);
+		delete(audioLevelSsp);
+	}
+	
+	
 }
 
 // Print connection details of the CC3000 chip
