@@ -200,13 +200,17 @@
 #define MIN 1
 #define SEC 2
 
+// Colors
+#define BLACK PixelColor(0,0,0)
 #define RED PixelColor(255,0,0)
 #define ORANGE PixelColor(255,128,0)
 #define YELLOW PixelColor(255,255,0)
 #define GREEN PixelColor(0,255,0)
 #define BLUE PixelColor(0,0,255)
 #define VIOLET PixelColor(0x4B,0x00,0x82)
+#define WHITE PixelColor(255,255,255)
 
 
+#define ITER_ENOUGH 0xFFFF
 
 #endif  // ALLDEFS_H

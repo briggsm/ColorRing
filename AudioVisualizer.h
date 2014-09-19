@@ -31,6 +31,7 @@ public:
 	void fillLine(byte section, byte height);
 	void fillPeakPixel(byte section, byte height);
 	void writeToStrip(Adafruit_NeoPixel* strip);
+	float getAmplitude();
 };
 
 #endif

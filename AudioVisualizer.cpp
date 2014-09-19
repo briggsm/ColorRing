@@ -84,3 +84,19 @@ void AudioVisualizer::writeToStrip(Adafruit_NeoPixel* strip) {
 		strip->setPixelColor(i, pc.getLongVal());
 	}
 }
+
+float AudioVisualizer::getAmplitude() {
+	// Return amplitude as a %'age (0-100)
+	byte numBars = 0;
+	for (byte i = 0; i < 64; i++) {
+		//Serial.print("i:"); Serial.println(i);
+		if (visMatrix[i]) {
+			//Serial.println("incr");
+			numBars++;
+		}
+	}
+	
+	//Serial.print("numBars:"); Serial.println(numBars);
+	//if (numBars < 8) { numBars = 0; }  // cuz might be dropping peak pixel hanging around
+	return numBars / 64.0 * 100 * 2;  // *2 fudge cuz this algo isn't perfect
+}
