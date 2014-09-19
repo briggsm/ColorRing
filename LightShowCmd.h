@@ -25,9 +25,9 @@
 #include "PixelColor.h"
 #include "Gradient.h"
 
-#include "StandardCplusplus.h"
-#include "serstream"
-using namespace std;
+//#include "StandardCplusplus.h"
+//#include "serstream"
+//using namespace std;
 
 #include "AllDefs.h"
 

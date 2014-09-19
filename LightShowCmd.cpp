@@ -101,7 +101,7 @@ void LightShowCmd::showAndWait() {
 	//cout << "strip->show() - LSC::showAndWait()" << endl;
 	strip->show();
 	if (isAnim) {
-		cout << "*** Probably shouldn't get here in this application ***" << endl;
+		Serial.println(F("*** Probably shouldn't get here in this application ***"));
 		delay(animDelay);
 	}
 }

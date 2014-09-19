@@ -23,9 +23,9 @@
 #include <Arduino.h>
 #include "LightShowCmd.h"
 
-#include "StandardCplusplus.h"
-#include "serstream"
-using namespace std;
+//#include "StandardCplusplus.h"
+//#include "serstream"
+//using namespace std;
 
 
 class SetSeqPixels : public LightShowCmd {
