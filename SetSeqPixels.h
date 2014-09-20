@@ -82,7 +82,7 @@ public:
 
 	void step(boolean isShowStrip);
 	void reset();
-	int getCurrPixelColor();
+	//int getCurrPixelColor();
 };
 
 #endif // SETSEQPIXELS_H

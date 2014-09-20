@@ -83,7 +83,7 @@ public:
 	//string inOutStr;
         
 	LightShowCmd();
-	boolean isMoreSteps();
+	bool isMoreSteps();
 	
 	virtual void step(boolean isShowStrip) = 0;
 	void exec(boolean isShowStrip);
@@ -97,7 +97,7 @@ public:
 	//void clearStrip(Adafruit_NeoPixel* strip);
 	void clearStrip();
 	byte getCmdType();
-	string getCmdTypeStr();
+	//string getCmdTypeStr();
 	void lscResetCommon();
 	void lscStepPreCommon();
 	void lscStepPostCommon(boolean isShowStrip);

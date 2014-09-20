@@ -54,7 +54,7 @@ LightShowCmd::LightShowCmd() {
 	cmdFinishedTime = 0;
 }
 
-boolean LightShowCmd::isMoreSteps() {
+bool LightShowCmd::isMoreSteps() {
 
 	if (numIter == 0) { return false; }
 	
@@ -148,6 +148,7 @@ byte LightShowCmd::getCmdType() {
 	return cmdType;
 }
 
+/*
 string LightShowCmd::getCmdTypeStr() {
 	switch (cmdType) {
 		case 0:
@@ -159,6 +160,7 @@ string LightShowCmd::getCmdTypeStr() {
 	}
 	return "Invalid Cmd";
 }
+*/
 
 void LightShowCmd::lscResetCommon() {
 	currIteration = 0;
