@@ -135,7 +135,7 @@ MultiGradient::MultiGradient(PixelColor *colorSeriesArr, byte numColorsInSeries,
 		//cout << F("currGradNum: ") << (int)currGradNum << endl;
 		
 		startPixelColor = colorSeriesArr[currGradNum];
-		if (gradiateLastPixelFirstColor & currGradNum == (numGradients - 1)) {
+		if (gradiateLastPixelFirstColor && (currGradNum == numGradients - 1)) {
 			endPixelColor = colorSeriesArr[0];
 		} else {
 			endPixelColor = colorSeriesArr[currGradNum+1];

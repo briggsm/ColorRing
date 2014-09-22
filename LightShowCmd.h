@@ -75,7 +75,7 @@ protected:
 	PixelColor currPixelColor;
 	
 	boolean isFirstTimeAfterFinished;
-	int cmdFinishedTime;
+	unsigned long cmdFinishedTime;
 	
 public:
 	boolean isPauseMode;

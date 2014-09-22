@@ -176,6 +176,12 @@ int DispMinHandOut;
 int DispMinHandIn;
 int DispSecHandOut;
 int DispSecHandIn;
+// Clap for Time
+int EnableClap;  // 1=>true, 0=>false
+int ClapAmpThreshold;  // byte
+int ClapMinDelayUntilNext;  // byte
+int ClapWindowForNext;  // byte
+int ClapShowTimeNumSeconds;  // byte
 
 
 // Accessed via "byte array" request (anything other than an int)
@@ -183,7 +189,8 @@ DateTime CurrTime;
 PixelColor OutColored5sColor, InColored5sColor;
 PixelColor HandColorHour, HandColorMin, HandColorSec;
 
-
+byte opModeOutside = 0;
+byte opModeInside = 0;
 
 Adafruit_NeoPixel outStrip = Adafruit_NeoPixel(NUM_LEDS, OUT_STRIP_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel inStrip  = Adafruit_NeoPixel(NUM_LEDS, IN_STRIP_PIN,  NEO_GRB + NEO_KHZ800);
@@ -232,6 +239,14 @@ byte lastSecondVal;
 //byte timeHours, timeMins, timeSecs;
 
 bool clockRTColorChanged = false;
+
+// Clap
+bool isFirstClap = true;
+unsigned long firstClapTimeMS = 0;
+bool isClapTriggerClockEnabled = false;
+unsigned long clapTriggerClockTimeMS = 0;
+byte tempClapOpModeOutside = 0;
+byte tempClapOpModeInside = 0;
 
 
 void setup(void)
@@ -299,6 +314,12 @@ void setup(void)
 	// Read all data from EEPROM
 	readAllFromEEPROM();
 	showSetupProgress(setupStep++);
+	
+	// Init opMode's
+	opModeOutside = ((OpMode & 0xF0) >> 4);
+	opModeInside = OpMode & 0x0F;
+	tempClapOpModeOutside = opModeOutside;
+	tempClapOpModeInside = opModeInside;
 
 	// Init variables and expose them to HTTP Handler
 	// NOTE: REMEMBER TO CHANGE "#define NUMBER_VARIABLES" (in HttpHandler.h)!
@@ -318,6 +339,11 @@ void setup(void)
 	hh.variable("inExternalCtrlMode", &InExternalCtrlMode);
 	hh.variable("inExternalCtrlModeFlowSpeed", &InExternalCtrlModeFlowSpeed);
 	hh.variable("inExternalCtrlModeFlowNumSections", &InExternalCtrlModeFlowNumSections);
+	hh.variable("enableClap", &EnableClap);
+	hh.variable("clapAmpThreshold", &ClapAmpThreshold);
+	hh.variable("clapMinDelayUntilNext", &ClapMinDelayUntilNext);
+	hh.variable("clapWindowForNext", &ClapWindowForNext);
+	hh.variable("clapShowTimeNumSeconds", &ClapShowTimeNumSeconds);
 	hh.variable("useNtpServer", &UseNtpServer);
 	hh.variable("tzAdj", &TzAdj);
 	hh.variable("isDst", &IsDst);
@@ -410,8 +436,8 @@ void setup(void)
 
 void loop() {
 	bool isOutside;
-	byte opModeOutside = ((OpMode & 0xF0) >> 4);
-	byte opModeInside = OpMode & 0x0F;
+	//byte opModeOutside = ((OpMode & 0xF0) >> 4);
+	//byte opModeInside = OpMode & 0x0F;
 	
 	//Serial.print("Free RAM loop: "); Serial.println(getFreeRam(), DEC);
 	if (!SKIP_CC3000) {
@@ -653,7 +679,8 @@ void loop() {
 	// ==============================
 	//Serial.println("Audio Visualizer loop");
 	if (opModeOutside == OPMODE_AUDIOVISUALIZER || opModeInside == OPMODE_AUDIOVISUALIZER ||
-		opModeOutside == OPMODE_AUDIOLEVEL 		|| opModeInside == OPMODE_AUDIOLEVEL) {
+		opModeOutside == OPMODE_AUDIOLEVEL 		|| opModeInside == OPMODE_AUDIOLEVEL	  ||
+		EnableClap == true || isClapTriggerClockEnabled == true) {
 		//Serial.println("MIC related");
 		uint8_t  i, x, L, *data, nBins, binNum, weighting, c;
 		uint16_t minLvl, maxLvl;
@@ -751,6 +778,7 @@ void loop() {
 		// NOTE: Doing audio HERE because analogRead() does not work (freezes) when the ADC interrupts are enabled (which are used for FFT).
 		//		This is unfortunate, 'cuz the FFT stuff is way overkill just to get amplitude, but it still works (pretty well).
 		if (opModeOutside == OPMODE_AUDIOLEVEL || opModeInside == OPMODE_AUDIOLEVEL) {
+				
 			//Serial.println("Audio Level");
 			float amp = aVis.getAmplitude();  // as %'age (0-100)
 			//Serial.print("amp:"); Serial.println(amp);
@@ -767,14 +795,6 @@ void loop() {
 			clearStrip(strip);
 		
 			PixelColor colorSeriesArr[6];
-			/*
-			colorSeriesArr[0] = RED;
-			colorSeriesArr[1] = ORANGE;
-			colorSeriesArr[2] = YELLOW;
-			colorSeriesArr[3] = GREEN;
-			colorSeriesArr[4] = BLUE;
-			colorSeriesArr[5] = VIOLET;
-			*/
 			colorSeriesArr[0] = BLUE;
 			colorSeriesArr[1] = GREEN;
 			colorSeriesArr[2] = YELLOW;
@@ -785,6 +805,71 @@ void loop() {
 			//SetSeqPixels *audioLevelSsp = new SetSeqPixels(strip, stripLevel, 10, 1, 0, stripLevel, 0, 0, DESTRUCTIVE, CCW, NONANIMATED, CLEAR, GRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 6, colorSeriesArr); // Red at end
 			audioLevelSsp->exec(SHOWSTRIP);
 			delete(audioLevelSsp);
+		}
+		
+		// =====================
+		// === Clap for Time ===
+		// =====================
+		// Turn off the triggered clock if it's done showing it's time
+		if (isClapTriggerClockEnabled && millis() - clapTriggerClockTimeMS > ClapShowTimeNumSeconds * 1000) {
+			isClapTriggerClockEnabled = false;
+			opModeOutside = tempClapOpModeOutside;
+			opModeInside = tempClapOpModeInside;
+		}
+		
+		if (EnableClap && !isClapTriggerClockEnabled) {
+			const byte clapLengthMS = 100;
+			//Serial.println("Clap is Enabled!");
+			float amp = aVis.getAmplitude();  // as %'age (0-100)
+			//Serial.print("amp:"); Serial.println(amp);
+			byte stripLevel = (byte)(amp / 100.0 * 60);
+			if (stripLevel >= 2) {
+				Serial.print("stripLevel:"); Serial.print(stripLevel); Serial.print(", currTimeMS:"); Serial.println(millis());
+			}
+			
+			// Make sure clapLength has passed before moving on to 2nd clap
+			if (!isFirstClap && millis() - firstClapTimeMS < clapLengthMS) {
+				return;  // go on to next iteration of loop()
+			}
+			
+			// Check for timeout after 1st clap
+			word maxTimeForBothClapsMS = ClapMinDelayUntilNext*10 + ClapWindowForNext*10;
+			if (!isFirstClap && (millis() - firstClapTimeMS > maxTimeForBothClapsMS)) {
+				Serial.println("timed out waiting for 2nd clap");
+				isFirstClap = true;
+			}
+			
+			if (stripLevel >= ClapAmpThreshold) {
+				if (isFirstClap) {
+					Serial.println("1st Clap");
+					firstClapTimeMS = millis();
+					
+					//Serial.print(" delaying "); Serial.print(clapLengthMS); Serial.println("ms");
+					//delay(clapLengthMS);  // probably shoudln't hardcode delay like this...
+					
+					isFirstClap = false;  // on to 2nd clap
+				} else {
+					Serial.println("2nd clap");
+					// 2nd Clap
+					word delayMS = millis() - firstClapTimeMS;
+					if (delayMS > (ClapMinDelayUntilNext*10) && (delayMS <= maxTimeForBothClapsMS)) {  // *10 to get to MS
+						// Trigger - show time
+						Serial.println("**Trigger Show Time**");
+						clapTriggerClockTimeMS = millis();
+						isClapTriggerClockEnabled = true;
+						tempClapOpModeOutside = opModeOutside;
+						tempClapOpModeInside = opModeInside;
+						opModeOutside = OPMODE_CLOCK;
+						opModeInside = OPMODE_CLOCK;
+					} else {
+						Serial.println("2nd clap not within window (clap came too fast):");
+						Serial.print(F(" firstClapTimeMS:")); Serial.print(firstClapTimeMS); Serial.print(F("delayMS:")); Serial.println(delayMS);
+						Serial.print(F(" ClapMinDelayUntilNext(MS):")); Serial.print(ClapMinDelayUntilNext*10); Serial.print(F("ClapWindowForNext(MS):")); Serial.println(ClapWindowForNext*10);
+					}
+					
+					isFirstClap = true;
+				}
+			}
 		}
 	}
 	// === end MICROPHONE related ===
@@ -859,6 +944,10 @@ void executePacket() {
 			
 			// Write the opMode out to EEPROM & Global variable
 			EEPROM.write(EEP_OPMODE, OpMode);
+			
+			// Update opMode vars
+			opModeOutside = ((OpMode & 0xF0) >> 4);
+			opModeInside = OpMode & 0x0F;
 			
 			// Clear both strips
 			//   user may or may not want to do this
@@ -1049,6 +1138,23 @@ void executePacket() {
 			}
 			
 			break;
+		case WIFI_PACKET_SET_CLAP_PARAMS:  // 0xE0 (224)
+			EnableClap = packet[1];
+			ClapAmpThreshold = packet[2];
+			ClapMinDelayUntilNext = packet[3];
+			ClapWindowForNext = packet[4];
+			ClapShowTimeNumSeconds = packet[5];
+	
+			Serial.println(F(" Setting Clap Params..."));
+		
+			// save to EEPROM & Global variable
+			EEPROM.write(EEP_ENABLE_CLAP, EnableClap);
+			EEPROM.write(EEP_CLAP_AMP_THRESHOLD, ClapAmpThreshold);
+			EEPROM.write(EEP_CLAP_MIN_DELAY_UNTIL_NEXT, ClapMinDelayUntilNext);
+			EEPROM.write(EEP_CLAP_WINDOW_FOR_NEXT, ClapWindowForNext);
+			EEPROM.write(EEP_CLAP_SHOW_TIME_NUM_SECONDS, ClapShowTimeNumSeconds);
+			
+			break;
 	}
 }
 
@@ -1070,6 +1176,8 @@ int setHackNameToCmd(String cmdPosStr) {
 
 	Serial.print("cmdBytesStr: "); Serial.println(cmdBytesStr);
 	hh.set_name(cmdBytesStr);
+	
+	return 1;
 }
 
 int setHackNameToColor(String desiredColorConst) {  // e.g. "0", "1", etc.
@@ -1098,6 +1206,8 @@ int setHackNameToColor(String desiredColorConst) {  // e.g. "0", "1", etc.
 	colorStr = String(pc.R) + "," + String(pc.G) + "," + String(pc.B);
 	
 	hh.set_name(colorStr);
+	
+	return 1;
 }
 
 int setHackNameToTime(String na) {
@@ -1108,12 +1218,14 @@ int setHackNameToTime(String na) {
 	timeStr += CurrTime.second();
 	
 	hh.set_name(timeStr);
+	
+	return 1;
 }
 
 void eepromPrint(int numVals, String base) {
 	// base can be either "hex" or "dec"
 	
-	int address = 0;
+	//int address = 0;
 	byte val;
 	
 	Serial.println("Contents of EEPROM:");
@@ -1249,6 +1361,9 @@ void readAllFromEEPROM() {
 	
 	// OpMode
 	OpMode = EEPROM.read(EEP_OPMODE);
+		// also set opMode vars
+		//opModeOutside = ((OpMode & 0xF0) >> 4);
+		//opModeInside = OpMode & 0x0F;
 	
 	// ECM's
 	OutExternalCtrlMode = EEPROM.read(EEP_OUT_EXTERNALCTRLMODE);
@@ -1267,6 +1382,13 @@ void readAllFromEEPROM() {
 	g = EEPROM.read(EEP_IN_COLORED5S_COLOR+1);
 	b = EEPROM.read(EEP_IN_COLORED5S_COLOR+2);
 	InColored5sColor = PixelColor(r,g,b);
+	
+	// Clap for Time
+	EnableClap = EEPROM.read(EEP_ENABLE_CLAP);
+	ClapAmpThreshold = EEPROM.read(EEP_CLAP_AMP_THRESHOLD);
+	ClapMinDelayUntilNext = EEPROM.read(EEP_CLAP_MIN_DELAY_UNTIL_NEXT);
+	ClapWindowForNext = EEPROM.read(EEP_CLAP_WINDOW_FOR_NEXT);
+	ClapShowTimeNumSeconds = EEPROM.read(EEP_CLAP_SHOW_TIME_NUM_SECONDS);
 	
 	// UseNtpServer
 	UseNtpServer = EEPROM.read(EEP_USE_NTP_SERVER);
@@ -1371,8 +1493,8 @@ void displayTimeToStrips() {
 		lastSecondVal = CurrTime.second();
 		clockRTColorChanged = false;
 
-		byte opModeOutside = ((OpMode & 0xF0) >> 4);
-		byte opModeInside = OpMode & 0x0F;
+		//byte opModeOutside = ((OpMode & 0xF0) >> 4);
+		//byte opModeInside = OpMode & 0x0F;
 
 		byte handVal[3];
 		byte handSize[3];
@@ -1407,12 +1529,12 @@ void displayTimeToStrips() {
 		uint8_t pixelNum;
 
 		// Clear Strip(s) (if applicable)
-		if (opModeOutside == OPMODE_CLOCK) {
+		if (opModeOutside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
 			strip = &outStrip;
 			clearStrip(strip);
 		}
 
-		if (opModeInside == OPMODE_CLOCK) {
+		if (opModeInside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
 			strip = &inStrip;
 			clearStrip(strip);
 		}
@@ -1425,10 +1547,10 @@ void displayTimeToStrips() {
 			colorSeriesArr[0] = handColor[clkHand];
 		
 			// Outside strip
-			if (opModeOutside == OPMODE_CLOCK) {
+			if (opModeOutside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
 				strip = &outStrip;
 				if (handDispOut[clkHand] == 1) {
-					//SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+					//SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 					//handSsp.exec(NOSHOWSTRIP);
 					SetSeqPixels *handSsp = new SetSeqPixels(strip, startPixelNum, 1, handSize[clkHand], 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 					handSsp->exec(NOSHOWSTRIP);
@@ -1437,10 +1559,10 @@ void displayTimeToStrips() {
 			}
 		
 			// Inside strip
-			if (opModeInside == OPMODE_CLOCK) {
+			if (opModeInside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
 				strip = &inStrip;
 				if (handDispIn[clkHand] == 1) {
-					//SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+					//SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 					//handSsp.exec(NOSHOWSTRIP);
 					SetSeqPixels *handSsp = new SetSeqPixels(strip, startPixelNum, 1, handSize[clkHand], 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 					handSsp->exec(NOSHOWSTRIP);
@@ -1449,11 +1571,11 @@ void displayTimeToStrips() {
 			}
 		}
 		
-		if (opModeOutside == OPMODE_CLOCK) {
+		if (opModeOutside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
 			strip = &outStrip;
 			strip->show();
 		}
-		if (opModeInside == OPMODE_CLOCK) {
+		if (opModeInside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
 			strip = &inStrip;
 			strip->show();
 		}

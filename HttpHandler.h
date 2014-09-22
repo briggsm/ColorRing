@@ -30,7 +30,7 @@
 	#include <WildFire_CC3000_Server.h>
 #endif
 
-#define NUMBER_VARIABLES 21
+#define NUMBER_VARIABLES 26
 #define NUMBER_FUNCTIONS 4
 
 class HttpHandler {
