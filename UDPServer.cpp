@@ -40,7 +40,7 @@ bool UDPServer::begin() {
 		address.sin_family = AF_INET;
 		address.sin_port = htons(_port);
 		address.sin_addr.s_addr = 0;  // 0 => auto use own ip address
-		socklen_t len = sizeof(address);
+		//socklen_t len = sizeof(address);
 		if (bind(soc, (sockaddr*) &address, sizeof(address)) < 0) {
 			Serial.println("bind() call failed");
 			return false;

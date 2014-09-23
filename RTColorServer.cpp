@@ -37,7 +37,7 @@ bool RTColorServer::handleNewColorPacket(PixelColor &newColor, byte &colorUsage)
 		//Serial.print("n: "); Serial.println(n);
 	
 		if (n % 4 == 0) {  // ONLY expecting 4-byte packets
-			byte r,g,b;
+			byte r=0,g=0,b=0;
 
 			PixelColor currColor;
 			for (int i = 0; i < n; ++i) {
@@ -51,15 +51,15 @@ bool RTColorServer::handleNewColorPacket(PixelColor &newColor, byte &colorUsage)
 					g = v;
 				} else {
 					b = v;
-				}	
-		
-				currColor.R = r;
-				currColor.G = g;
-				currColor.B = b;
-
-				_lastColor = currColor;
-				isColorGrabbed = false;
+				}
 			}
+		
+			currColor.R = r;
+			currColor.G = g;
+			currColor.B = b;
+
+			_lastColor = currColor;
+			isColorGrabbed = false;
 		}
 	}
 	
