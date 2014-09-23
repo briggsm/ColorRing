@@ -203,14 +203,14 @@ int maxStripCmdSize;
 
 vector<LightShowCmd*> stripCmds(MAX_NUM_STRIPCMDS * 2); // Note: 1st half is OUTSIDE strip, 2nd half is INSIDE strip
 
-long outPreviousMillis = 0;
-long inPreviousMillis = 0;
+unsigned long outPreviousMillis = 0;
+unsigned long inPreviousMillis = 0;
 unsigned long currentMillis = 0;
-long outAnimDelay = 0;
-long inAnimDelay = 0;
+unsigned long outAnimDelay = 0;
+unsigned long inAnimDelay = 0;
 
-long lastOecmFlowMs = 0;
-long lastIecmFlowMs = 0;
+unsigned long lastOecmFlowMs = 0;
+unsigned long lastIecmFlowMs = 0;
 PixelColor lastOecmFlowColor(0,0,0);
 PixelColor lastIecmFlowColor(0,0,0);
 
@@ -435,7 +435,7 @@ void setup(void)
 }
 
 void loop() {
-	bool isOutside;
+	//bool isOutside;
 	//byte opModeOutside = ((OpMode & 0xF0) >> 4);
 	//byte opModeInside = OpMode & 0x0F;
 	
@@ -512,7 +512,7 @@ void loop() {
 				// EXTERNALCTRLMODE_FLOW
 				lastOecmFlowColor = outEcmColor;
 			
-				if (millis() - lastOecmFlowMs > OutExternalCtrlModeFlowSpeed) {
+				if (millis() - lastOecmFlowMs > (unsigned long)OutExternalCtrlModeFlowSpeed) {
 					lastOecmFlowMs = millis();
 					PixelColor colorSeriesArr[1] = lastOecmFlowColor;
 					Flow ecmFlow(strip, 0, NUM_LEDS-1, OutExternalCtrlModeFlowNumSections, 1, 1, 0, 0, 0, CW, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
@@ -537,7 +537,7 @@ void loop() {
 				// EXTERNALCTRLMODE_FLOW
 				lastIecmFlowColor = inEcmColor;
 			
-				if (millis() - lastIecmFlowMs > InExternalCtrlModeFlowSpeed) {
+				if (millis() - lastIecmFlowMs > (unsigned long)InExternalCtrlModeFlowSpeed) {
 					lastIecmFlowMs = millis();
 					PixelColor colorSeriesArr[1] = lastIecmFlowColor;
 					Flow ecmFlow(strip, 0, NUM_LEDS-1, InExternalCtrlModeFlowNumSections, 1, 1, 0, 0, 0, CW, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
@@ -682,9 +682,12 @@ void loop() {
 		opModeOutside == OPMODE_AUDIOLEVEL 		|| opModeInside == OPMODE_AUDIOLEVEL	  ||
 		EnableClap == true || isClapTriggerClockEnabled == true) {
 		//Serial.println("MIC related");
-		uint8_t  i, x, L, *data, nBins, binNum, weighting, c;
+		//uint8_t  i, x, L, *data, nBins, binNum, weighting, c;
+		uint8_t  i, x, L, *data, nBins, binNum, c;
 		uint16_t minLvl, maxLvl;
-		int      level, y, sum;
+		//int16_t minLvl, maxLvl;
+		//int      level, y, sum;
+		int      level, sum;
 
 		while(ADCSRA & _BV(ADIE)); // Wait for audio sampling to finish
 
@@ -811,7 +814,7 @@ void loop() {
 		// === Clap for Time ===
 		// =====================
 		// Turn off the triggered clock if it's done showing it's time
-		if (isClapTriggerClockEnabled && millis() - clapTriggerClockTimeMS > ClapShowTimeNumSeconds * 1000) {
+		if (isClapTriggerClockEnabled && millis() - clapTriggerClockTimeMS > (unsigned int)ClapShowTimeNumSeconds * 1000) {
 			isClapTriggerClockEnabled = false;
 			opModeOutside = tempClapOpModeOutside;
 			opModeInside = tempClapOpModeInside;
@@ -852,7 +855,7 @@ void loop() {
 					Serial.println("2nd clap");
 					// 2nd Clap
 					word delayMS = millis() - firstClapTimeMS;
-					if (delayMS > (ClapMinDelayUntilNext*10) && (delayMS <= maxTimeForBothClapsMS)) {  // *10 to get to MS
+					if (delayMS > ((unsigned int)ClapMinDelayUntilNext*10) && (delayMS <= maxTimeForBothClapsMS)) {  // *10 to get to MS
 						// Trigger - show time
 						Serial.println("**Trigger Show Time**");
 						clapTriggerClockTimeMS = millis();
@@ -1525,8 +1528,8 @@ void displayTimeToStrips() {
 		handDispIn[SEC] = DispSecHandIn;
 
 		byte clkHand;
-		uint32_t currHandColor;
-		uint8_t pixelNum;
+		//uint32_t currHandColor;
+		//uint8_t pixelNum;
 
 		// Clear Strip(s) (if applicable)
 		if (opModeOutside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
@@ -1592,7 +1595,9 @@ unsigned long getTime(void) {
   Serial.print(F("Locating time server..."));
 
   // Hostname to IP lookup; use NTP pool (rotates through servers)
-  if(cc3000.getHostByName("pool.ntp.org", &ip)) {
+  char ipStr[] = "pool.ntp.org";
+  //if(cc3000.getHostByName("pool.ntp.org", &ip)) {
+  if(cc3000.getHostByName(ipStr, &ip)) {
     static const char PROGMEM
       timeReqA[] = { 227,  0,  6, 236 },
       timeReqB[] = {  49, 78, 49,  52 };
