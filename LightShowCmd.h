@@ -79,7 +79,7 @@ protected:
 	
 public:
 	boolean isPauseMode;
-	byte currIteration;
+	word currIteration;
 	//string inOutStr;
         
 	LightShowCmd();

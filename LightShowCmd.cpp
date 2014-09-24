@@ -58,6 +58,7 @@ bool LightShowCmd::isMoreSteps() {
 
 	if (numIter == 0) { return false; }
 	
+	//Serial.print(F("currIteration:")); Serial.print(currIteration); Serial.print(F(", numIter:")); Serial.println(numIter);
 	if (currIteration < numIter) {
 		return true;
 	} else {

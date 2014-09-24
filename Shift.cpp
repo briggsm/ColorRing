@@ -33,7 +33,7 @@ Shift::Shift(Adafruit_NeoPixel* strip,
 			byte startPixelNum,
 			byte endPixelNum,
 			byte numPixelsToSkip,
-			byte numIter,
+			word numIter,
 			word animDelay,
 			word pauseAfter,
 			
@@ -50,12 +50,12 @@ Shift::Shift(Adafruit_NeoPixel* strip, byte* stripCmdArray) {
 	byte startPixelNum = stripCmdArray[1];
 	byte endPixelNum = stripCmdArray[2];
 	byte numPixelsToSkip = stripCmdArray[3];
-	byte numIter = stripCmdArray[4];
+	word numIter = (stripCmdArray[4] << 8) + stripCmdArray[5];
 
-	word animDelay = (stripCmdArray[5] << 8) + stripCmdArray[6];
-	word pauseAfter = (stripCmdArray[7] << 8) + stripCmdArray[8];
+	word animDelay = (stripCmdArray[6] << 8) + stripCmdArray[7];
+	word pauseAfter = (stripCmdArray[8] << 8) + stripCmdArray[9];
 	
-	byte boolBits = stripCmdArray[9];
+	byte boolBits = stripCmdArray[10];
 	/*
 	//bool destructive = bitChecker(BOOLBIT_DESTRUCTIVE, boolBits);
 	bool direction = bitChecker(BOOLBIT_DIRECTION, boolBits);
@@ -75,7 +75,7 @@ void Shift::init(Adafruit_NeoPixel* strip,
 			byte startPixelNum,
 			byte endPixelNum,
 			byte numPixelsToSkip,
-			byte numIter,
+			word numIter,
 			word animDelay,
 			word pauseAfter,
 			

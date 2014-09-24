@@ -23,7 +23,7 @@ Gradient::Gradient() {
 	
 }
 	
-Gradient::Gradient(PixelColor startPixelColor, PixelColor endPixelColor, byte numTweens) {
+Gradient::Gradient(PixelColor startPixelColor, PixelColor endPixelColor, word numTweens) {
 	this->startPixelColor = startPixelColor;
 	this->endPixelColor = endPixelColor;
 	this->numTweens = numTweens;  // Inclusive of first & last
@@ -62,7 +62,7 @@ Gradient::Gradient(PixelColor startPixelColor, PixelColor endPixelColor, byte nu
 
 }
 
-PixelColor Gradient::getTweenPixelColor(byte tweenNum) {
+PixelColor Gradient::getTweenPixelColor(word tweenNum) {
 	
 	PixelColor newColor;
 	
@@ -126,11 +126,12 @@ MultiGradient::MultiGradient(PixelColor *colorSeriesArr, byte numColorsInSeries,
 		fNumIncrPerGradientSection = (numPixels-1) * 1.0 / (numColorsInSeries - 1);
 	}
 	
-	//cout << F("fNumIncr: ") << fNumIncrPerGradientSection << endl;
+	//cout << F("fNumIncrPerGradientSection: ") << fNumIncrPerGradientSection << endl;
+	
 	
 	PixelColor startPixelColor, endPixelColor;
-	byte startPixel, endPixel, numTweens;
-	byte ctr = 0;
+	word startPixel, endPixel, numTweens;
+	word ctr = 0;
 	for (int currGradNum = 0; currGradNum < numGradients; currGradNum++) {
 		//cout << F("currGradNum: ") << (int)currGradNum << endl;
 		
@@ -164,12 +165,14 @@ MultiGradient::MultiGradient(PixelColor *colorSeriesArr, byte numColorsInSeries,
 	//cout << F("mgArr size: ") << mgArr.size() << endl;
 }
 
-byte MultiGradient::getNumPixels() {
+/*
+word MultiGradient::getNumPixels() {
 	// Inclusive
 
 	return numPixels;
 }
+*/
 
-PixelColor MultiGradient::getTweenPixelColor(byte tweenNum) {
+PixelColor MultiGradient::getTweenPixelColor(word tweenNum) {
 	return mgArr[tweenNum % numPixels];
 }

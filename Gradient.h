@@ -34,29 +34,29 @@ class Gradient {
 private:
 	PixelColor startPixelColor;
 	PixelColor endPixelColor;
-	byte numTweens;  // Inclusive of first & last
+	word numTweens;  // Inclusive of first & last
 	
 	boolean rIncrDir, gIncrDir, bIncrDir;
 	unsigned long rIncrAmt1024, gIncrAmt1024, bIncrAmt1024; // *1024 to keep some math accuracy
 	
 public:
 	Gradient();
-	Gradient(PixelColor startPixelColor, PixelColor endPixelColor, byte numTweens);
+	Gradient(PixelColor startPixelColor, PixelColor endPixelColor, word numTweens);
 	
-	PixelColor getTweenPixelColor(byte tweenNum);
+	PixelColor getTweenPixelColor(word tweenNum);
 };
 
 
 class MultiGradient {
 private:
-	byte numPixels;  // Inclusive
+	word numPixels;  // Inclusive
 	std::vector<PixelColor> mgArr;
 public:
 	MultiGradient();
 	MultiGradient(PixelColor *colorSeriesArr, byte numColorsInSeries, byte numPixelsEachColor, bool gradiateLastPixelFirstColor);
 	
-	byte getNumPixels();
-	PixelColor getTweenPixelColor(byte tweenNum);
+	//word getNumPixels();
+	PixelColor getTweenPixelColor(word tweenNum);
 };
 
 #endif // GRADIENT_H
