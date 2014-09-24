@@ -45,7 +45,7 @@ public:
 			byte startPixelNum,
 			byte endPixelNum,
 			byte numPixelsToSkip,
-			byte numIter,
+			word numIter,
 			word animDelay,
 			word pauseAfter,
 			
@@ -61,7 +61,7 @@ public:
 			byte startPixelNum,
 			byte endPixelNum,
 			byte numPixelsToSkip,
-			byte numIter,
+			word numIter,
 			word animDelay,
 			word pauseAfter,
 			
