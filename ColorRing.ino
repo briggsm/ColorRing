@@ -826,9 +826,9 @@ void loop() {
 			float amp = aVis.getAmplitude();  // as %'age (0-100)
 			//Serial.print("amp:"); Serial.println(amp);
 			byte stripLevel = (byte)(amp / 100.0 * 60);
-			if (stripLevel >= 2) {
-				Serial.print("stripLevel:"); Serial.print(stripLevel); Serial.print(", currTimeMS:"); Serial.println(millis());
-			}
+			//if (stripLevel >= 2) {
+			//	Serial.print("stripLevel:"); Serial.print(stripLevel); Serial.print(", currTimeMS:"); Serial.println(millis());
+			//}
 			
 			// Make sure clapLength has passed before moving on to 2nd clap
 			if (!isFirstClap && millis() - firstClapTimeMS < clapLengthMS) {
