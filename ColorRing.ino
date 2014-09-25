@@ -176,8 +176,11 @@ int DispMinHandOut;
 int DispMinHandIn;
 int DispSecHandOut;
 int DispSecHandIn;
+int Colored5sEnableOut;
+int Colored5sEnableIn;
 // Clap for Time
-int EnableClap;  // 1=>true, 0=>false
+int EnableClapOut;  // 1=>true, 0=>false
+int EnableClapIn;  // 1=>true, 0=>false
 int ClapAmpThreshold;  // byte
 int ClapMinDelayUntilNext;  // byte
 int ClapWindowForNext;  // byte
@@ -324,8 +327,9 @@ void setup(void)
 	// Init variables and expose them to HTTP Handler
 	// NOTE: REMEMBER TO CHANGE "#define NUMBER_VARIABLES" (in HttpHandler.h)!
 	//   Note: After adding variable here, also modify:
+	//		- HttpHandler.h
 	//		x- readXYZFromEEPROM()
-	//		- realAllFromEEPROM()
+	//		- readAllFromEEPROM()
 	//		- executePacket()
 	//		- AllDefs.h
 	maxNumStripCmds = MAX_NUM_STRIPCMDS;
@@ -339,7 +343,8 @@ void setup(void)
 	hh.variable("inExternalCtrlMode", &InExternalCtrlMode);
 	hh.variable("inExternalCtrlModeFlowSpeed", &InExternalCtrlModeFlowSpeed);
 	hh.variable("inExternalCtrlModeFlowNumSections", &InExternalCtrlModeFlowNumSections);
-	hh.variable("enableClap", &EnableClap);
+	hh.variable("enableClapOut", &EnableClapOut);
+	hh.variable("enableClapIn", &EnableClapIn);
 	hh.variable("clapAmpThreshold", &ClapAmpThreshold);
 	hh.variable("clapMinDelayUntilNext", &ClapMinDelayUntilNext);
 	hh.variable("clapWindowForNext", &ClapWindowForNext);
@@ -356,6 +361,8 @@ void setup(void)
 	hh.variable("dispMinHandIn", &DispMinHandIn);
 	hh.variable("dispSecHandOut", &DispSecHandOut);
 	hh.variable("dispSecHandIn", &DispSecHandIn);
+	hh.variable("colored5sEnableOut", &Colored5sEnableOut);
+	hh.variable("colored5sEnableIn", &Colored5sEnableIn);
 	// Function to be exposed
 	hh.function("packet", parsePacket);
 	hh.function("setHackNameToCmd", setHackNameToCmd);
@@ -580,7 +587,6 @@ void loop() {
 		}
 	}
 	
-	
 	// =============
 	// === CLOCK ===
 	// =============
@@ -645,43 +651,6 @@ void loop() {
 		displayTimeToStrips();
 	}
 	
-	// ===================
-	// === COLORED 5's ===
-	// ===================
-	if (opModeOutside == OPMODE_COLORED5S || opModeInside == OPMODE_COLORED5S) {
-		byte startPixelNum = 0;
-		byte numPixelsEachColor = 1;
-		byte colorSeriesNumIter = 12;
-		byte numPixelsToSkip = 4;
-		word numIter = ITER_ENOUGH;
-		word animDelay = 0;
-		word pauseAfter = 0;
-		
-		bool destructive = true;
-		bool direction = CW;
-		bool isAnim = false;
-		bool clearStripBefore = true;
-		bool gradiate = false;
-		bool gradiateLastPixelFirstColor = false;
-		
-		byte numColorsInSeries = 1;
-		PixelColor colorSeriesArr[numColorsInSeries];
-	
-		if (opModeOutside == OPMODE_COLORED5S) {
-			strip = &outStrip;
-			colorSeriesArr[0] = OutColored5sColor;
-			SetSeqPixels ssp(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, numIter, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
-			ssp.exec(SHOWSTRIP);
-		}
-	
-		if (opModeInside == OPMODE_COLORED5S) {
-			strip = &inStrip;
-			colorSeriesArr[0] = InColored5sColor;
-			SetSeqPixels ssp(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, numIter, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
-			ssp.exec(SHOWSTRIP);
-		}
-	}
-	
 	// ==========================
 	// === Microphone related ===
 	// ==========================
@@ -692,7 +661,7 @@ void loop() {
 	//Serial.println("Audio Visualizer loop");
 	if (opModeOutside == OPMODE_AUDIOVISUALIZER || opModeInside == OPMODE_AUDIOVISUALIZER ||
 		opModeOutside == OPMODE_AUDIOLEVEL 		|| opModeInside == OPMODE_AUDIOLEVEL	  ||
-		EnableClap == true || isClapTriggerClockEnabled == true) {
+		EnableClapOut || EnableClapIn || isClapTriggerClockEnabled) {
 		//Serial.println("MIC related");
 		//uint8_t  i, x, L, *data, nBins, binNum, weighting, c;
 		uint8_t  i, x, L, *data, nBins, binNum, c;
@@ -833,7 +802,7 @@ void loop() {
 			clearAndShowBothStrips();
 		}
 		
-		if (EnableClap && !isClapTriggerClockEnabled) {
+		if ((EnableClapOut || EnableClapIn) && !isClapTriggerClockEnabled) {
 			const byte clapLengthMS = 100;
 			//Serial.println("Clap is Enabled!");
 			float amp = aVis.getAmplitude();  // as %'age (0-100)
@@ -873,10 +842,15 @@ void loop() {
 						Serial.println("**Trigger Show Time**");
 						clapTriggerClockTimeMS = millis();
 						isClapTriggerClockEnabled = true;
+						
 						tempClapOpModeOutside = opModeOutside;
 						tempClapOpModeInside = opModeInside;
-						opModeOutside = OPMODE_CLOCK;
-						opModeInside = OPMODE_CLOCK;
+						if (EnableClapOut) {
+							opModeOutside = OPMODE_CLOCK;
+						}
+						if (EnableClapIn) {
+							opModeInside = OPMODE_CLOCK;
+						}
 					} else {
 						Serial.println("2nd clap not within window (clap came too fast):");
 						Serial.print(F(" firstClapTimeMS:")); Serial.print(firstClapTimeMS); Serial.print(F("delayMS:")); Serial.println(delayMS);
@@ -1115,30 +1089,30 @@ void executePacket() {
 			lastGrabbedManualTime = CurrTime.unixtime();
 		
 			break;
-		case WIFI_PACKET_SET_OUT_COLORED5S_COLOR:  //0xBD (189)
-			cout << F(" Setting OutColored5sColor...") << endl;
+
+		case WIFI_PACKET_SET_COLORED5S:  // 0xBD (189)
+			cout << F(" Setting Colored5s Info...") << endl;
 			
 			// save to EEPROM & Global variable
-			OutColored5sColor = PixelColor(packet[1], packet[2], packet[3]);
+			Colored5sEnableOut = packet[1];
+			Colored5sEnableIn = packet[2];
+			OutColored5sColor = PixelColor(packet[3], packet[4], packet[5]);
+			InColored5sColor = PixelColor(packet[6], packet[7], packet[8]);
+			
 
+			EEPROM.write(EEP_OUT_COLORED5S_ENABLE, Colored5sEnableOut);
+			EEPROM.write(EEP_IN_COLORED5S_ENABLE, Colored5sEnableIn);
+			
 			EEPROM.write(EEP_OUT_COLORED5S_COLOR + 0, OutColored5sColor.R);
 			EEPROM.write(EEP_OUT_COLORED5S_COLOR + 1, OutColored5sColor.G);
 			EEPROM.write(EEP_OUT_COLORED5S_COLOR + 2, OutColored5sColor.B);
 			
-			break;
-			
-		case WIFI_PACKET_SET_IN_COLORED5S_COLOR:  //0xBE (190)
-			cout << F(" Setting InColored5sColor...") << endl;
-		
-			// save to EEPROM & Global variable
-			InColored5sColor = PixelColor(packet[1], packet[2], packet[3]);
-
 			EEPROM.write(EEP_IN_COLORED5S_COLOR + 0, InColored5sColor.R);
 			EEPROM.write(EEP_IN_COLORED5S_COLOR + 1, InColored5sColor.G);
 			EEPROM.write(EEP_IN_COLORED5S_COLOR + 2, InColored5sColor.B);
-		
+			
 			break;
-
+		
 		case WIFI_PACKET_SET_STRIPCMD:  // 0xDD (221)
 			byte cmdPos;
 			cmdPos = packet[1];
@@ -1155,16 +1129,18 @@ void executePacket() {
 			
 			break;
 		case WIFI_PACKET_SET_CLAP_PARAMS:  // 0xE0 (224)
-			EnableClap = packet[1];
-			ClapAmpThreshold = packet[2];
-			ClapMinDelayUntilNext = packet[3];
-			ClapWindowForNext = packet[4];
-			ClapShowTimeNumSeconds = packet[5];
+			EnableClapOut = packet[1];
+			EnableClapIn = packet[2];
+			ClapAmpThreshold = packet[3];
+			ClapMinDelayUntilNext = packet[4];
+			ClapWindowForNext = packet[5];
+			ClapShowTimeNumSeconds = packet[6];
 	
 			Serial.println(F(" Setting Clap Params..."));
 		
 			// save to EEPROM & Global variable
-			EEPROM.write(EEP_ENABLE_CLAP, EnableClap);
+			EEPROM.write(EEP_ENABLE_CLAP_OUT, EnableClapOut);
+			EEPROM.write(EEP_ENABLE_CLAP_IN, EnableClapIn);
 			EEPROM.write(EEP_CLAP_AMP_THRESHOLD, ClapAmpThreshold);
 			EEPROM.write(EEP_CLAP_MIN_DELAY_UNTIL_NEXT, ClapMinDelayUntilNext);
 			EEPROM.write(EEP_CLAP_WINDOW_FOR_NEXT, ClapWindowForNext);
@@ -1409,6 +1385,9 @@ void readAllFromEEPROM() {
 	InExternalCtrlModeFlowNumSections = EEPROM.read(EEP_IN_EXTERNALCTRLMODE_FLOWNUMSECTIONS);
 	
 	// Colored 5's
+	Colored5sEnableOut = EEPROM.read(EEP_OUT_COLORED5S_ENABLE);
+	Colored5sEnableIn = EEPROM.read(EEP_IN_COLORED5S_ENABLE);
+	
 	r = EEPROM.read(EEP_OUT_COLORED5S_COLOR);
 	g = EEPROM.read(EEP_OUT_COLORED5S_COLOR+1);
 	b = EEPROM.read(EEP_OUT_COLORED5S_COLOR+2);
@@ -1419,7 +1398,8 @@ void readAllFromEEPROM() {
 	InColored5sColor = PixelColor(r,g,b);
 	
 	// Clap for Time
-	EnableClap = EEPROM.read(EEP_ENABLE_CLAP);
+	EnableClapOut = EEPROM.read(EEP_ENABLE_CLAP_OUT);
+	EnableClapIn = EEPROM.read(EEP_ENABLE_CLAP_IN);
 	ClapAmpThreshold = EEPROM.read(EEP_CLAP_AMP_THRESHOLD);
 	ClapMinDelayUntilNext = EEPROM.read(EEP_CLAP_MIN_DELAY_UNTIL_NEXT);
 	ClapWindowForNext = EEPROM.read(EEP_CLAP_WINDOW_FOR_NEXT);
@@ -1525,6 +1505,52 @@ void displayTimeToStrips() {
 
 	if (CurrTime.second() != lastSecondVal || clockRTColorChanged) {
 		// Update only once / second (unless RealTime color is changing)
+		
+		if (opModeOutside == OPMODE_CLOCK) {
+			strip = &outStrip;
+			clearStrip(strip);
+		}
+		if (opModeInside == OPMODE_CLOCK) {
+			strip = &inStrip;
+			clearStrip(strip);
+		}
+		
+		// === COLORED 5's ===
+		if (Colored5sEnableOut || Colored5sEnableIn) {
+			byte startPixelNum = 0;
+			byte numPixelsEachColor = 1;
+			byte colorSeriesNumIter = 12;
+			byte numPixelsToSkip = 4;
+			word numIter = ITER_ENOUGH;
+			word animDelay = 0;
+			word pauseAfter = 0;
+		
+			bool destructive = true;
+			bool direction = CW;
+			bool isAnim = false;
+			bool clearStripBefore = true;
+			bool gradiate = false;
+			bool gradiateLastPixelFirstColor = false;
+		
+			byte numColorsInSeries = 1;
+			PixelColor colorSeriesArr[numColorsInSeries];
+	
+			if (opModeOutside == OPMODE_CLOCK && Colored5sEnableOut) {
+				strip = &outStrip;
+				colorSeriesArr[0] = OutColored5sColor;
+				SetSeqPixels ssp(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, numIter, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
+				ssp.exec(NOSHOWSTRIP);
+			}
+	
+			if (opModeInside == OPMODE_CLOCK && Colored5sEnableIn) {
+				strip = &inStrip;
+				colorSeriesArr[0] = InColored5sColor;
+				SetSeqPixels ssp(strip, startPixelNum, numPixelsEachColor, colorSeriesNumIter, numPixelsToSkip, numIter, animDelay, pauseAfter, destructive, direction, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor, numColorsInSeries, colorSeriesArr);
+				ssp.exec(NOSHOWSTRIP);
+			}
+		}
+		
+		// === CLOCK ===
 		lastSecondVal = CurrTime.second();
 		clockRTColorChanged = false;
 
@@ -1560,20 +1586,6 @@ void displayTimeToStrips() {
 		handDispIn[SEC] = DispSecHandIn;
 
 		byte clkHand;
-		//uint32_t currHandColor;
-		//uint8_t pixelNum;
-
-		// Clear Strip(s) (if applicable)
-		if (opModeOutside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
-			strip = &outStrip;
-			clearStrip(strip);
-		}
-
-		if (opModeInside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
-			strip = &inStrip;
-			clearStrip(strip);
-		}
-	
 		byte numColorsInSeries = 1;
 		PixelColor colorSeriesArr[numColorsInSeries];
 		for (clkHand = HOUR; clkHand <= SEC; clkHand++) {  // 0 to 2
@@ -1582,35 +1594,35 @@ void displayTimeToStrips() {
 			colorSeriesArr[0] = handColor[clkHand];
 		
 			// Outside strip
-			if (opModeOutside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
+			if (opModeOutside == OPMODE_CLOCK) {
 				strip = &outStrip;
 				if (handDispOut[clkHand] == 1) {
 					//SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 					//handSsp.exec(NOSHOWSTRIP);
-					SetSeqPixels *handSsp = new SetSeqPixels(strip, startPixelNum, 1, handSize[clkHand], 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+					SetSeqPixels *handSsp = new SetSeqPixels(strip, startPixelNum, 1, handSize[clkHand], 0, ITER_ENOUGH, 0, 0, NONDESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 					handSsp->exec(NOSHOWSTRIP);
 					delete(handSsp);
 				}
 			}
 		
 			// Inside strip
-			if (opModeInside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
+			if (opModeInside == OPMODE_CLOCK) {
 				strip = &inStrip;
 				if (handDispIn[clkHand] == 1) {
 					//SetSeqPixels handSsp(strip, startPixelNum, 1, handSize[clkHand], 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 					//handSsp.exec(NOSHOWSTRIP);
-					SetSeqPixels *handSsp = new SetSeqPixels(strip, startPixelNum, 1, handSize[clkHand], 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
+					SetSeqPixels *handSsp = new SetSeqPixels(strip, startPixelNum, 1, handSize[clkHand], 0, ITER_ENOUGH, 0, 0, NONDESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, numColorsInSeries, colorSeriesArr);
 					handSsp->exec(NOSHOWSTRIP);
 					delete(handSsp);
 				}
 			}
 		}
 		
-		if (opModeOutside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
+		if (opModeOutside == OPMODE_CLOCK) {
 			strip = &outStrip;
 			strip->show();
 		}
-		if (opModeInside == OPMODE_CLOCK || isClapTriggerClockEnabled) {
+		if (opModeInside == OPMODE_CLOCK) {
 			strip = &inStrip;
 			strip->show();
 		}
