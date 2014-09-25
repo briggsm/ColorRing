@@ -453,7 +453,19 @@ void loop() {
 			WildFire_CC3000_ClientRef httpClient = httpServer.available();
 		#endif
 	
-		hh.handle(httpClient);
+		if (hh.handle(httpClient)) {
+			// Blink some LED's
+			strip = &outStrip;
+			PixelColor colorSeriesArr[1];
+			
+			colorSeriesArr[0] = BLUE;
+			SetSeqPixels toggleSsp(strip, 0, 3, 1, 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
+			toggleSsp.exec(SHOWSTRIP);
+			delay(2);  // to see it a little better.
+			colorSeriesArr[0] = BLACK;
+			SetSeqPixels toggleSsp2(strip, 0, 3, 1, 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
+			toggleSsp2.exec(SHOWSTRIP);
+		}
 	
 		//Serial.print("Free RAM After http: "); Serial.println(getFreeRam(), DEC);
 	
@@ -818,6 +830,7 @@ void loop() {
 			isClapTriggerClockEnabled = false;
 			opModeOutside = tempClapOpModeOutside;
 			opModeInside = tempClapOpModeInside;
+			clearAndShowBothStrips();
 		}
 		
 		if (EnableClap && !isClapTriggerClockEnabled) {
@@ -1163,7 +1176,7 @@ void executePacket() {
 
 int setHackNameToCmd(String cmdPosStr) {
 	cmdPosStr.replace(" HTTP/", "");
-	Serial.print("cmdPosStr: "); Serial.println(cmdPosStr);
+	//Serial.print("cmdPosStr: "); Serial.println(cmdPosStr);
 	int cmdPos = cmdPosStr.toInt();
 	
 	String cmdBytesStr = "";
@@ -1177,7 +1190,7 @@ int setHackNameToCmd(String cmdPosStr) {
 		}
 	}
 
-	Serial.print("cmdBytesStr: "); Serial.println(cmdBytesStr);
+	Serial.print(F("cmdBytesStr: ")); Serial.println(cmdBytesStr);
 	hh.set_name(cmdBytesStr);
 	
 	return 1;
@@ -1186,28 +1199,36 @@ int setHackNameToCmd(String cmdPosStr) {
 int setHackNameToColor(String desiredColorConst) {  // e.g. "0", "1", etc.
 	String colorStr;
 	PixelColor pc;
+	String desc;
 	
 	int colInt = desiredColorConst.toInt();
 	switch (colInt) {
 		case OUT_COLORED5S_COLOR:
 			pc = OutColored5sColor;
+			desc = F("Outside Colored 5's");
 			break;
 		case IN_COLORED5S_COLOR:
 			pc = InColored5sColor;
+			desc = F("Inside Colored 5's");
 			break;
 		case HANDCOLOR_HOUR:
 			pc = HandColorHour;
+			desc = F("HandColor - Hour");
 			break;
 		case HANDCOLOR_MIN:
 			pc = HandColorMin;
+			desc = F("HandColor - Min");
 			break;
 		case HANDCOLOR_SEC:
 			pc = HandColorSec;
+			desc = F("HandColor - Sec");
 			break;
 	}
 	
 	colorStr = String(pc.R) + "," + String(pc.G) + "," + String(pc.B);
 	
+	Serial.print(colInt); Serial.print(F(" => ")); Serial.println(desc);
+	Serial.print(F("colorStr: ")); Serial.println(colorStr);
 	hh.set_name(colorStr);
 	
 	return 1;
@@ -1220,6 +1241,7 @@ int setHackNameToTime(String na) {
 	timeStr += CurrTime.minute(); timeStr += ",";
 	timeStr += CurrTime.second();
 	
+	Serial.print(F("timeStr: ")); Serial.println(timeStr);
 	hh.set_name(timeStr);
 	
 	return 1;
@@ -1282,6 +1304,16 @@ void clearStrip(Adafruit_NeoPixel* strip) {
 	for (uint8_t i = 0; i < strip->numPixels(); i++) {
 		strip->setPixelColor(i, 0, 0, 0);
 	}
+}
+
+void clearAndShowBothStrips() {
+	strip = &outStrip;
+	clearStrip(strip);
+	strip->show();
+	
+	strip = &inStrip;
+	clearStrip(strip);
+	strip->show();
 }
 
 int str2int(String s) {

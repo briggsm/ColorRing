@@ -82,9 +82,9 @@ public:
 	}
 
 #ifndef CORE_WILDFIRE
-	void handle(ColorRing_CC3000_ClientRef client) {
+	bool handle(ColorRing_CC3000_ClientRef client) {
 #else
-	void handle(WildFire_CC3000_ClientRef client) {
+	bool handle(WildFire_CC3000_ClientRef client) {
 #endif
 		
 		if (client.available()) {
@@ -97,7 +97,11 @@ public:
 
 			// Reset variables for the next command
 			reset_status();
-		} 
+			
+			return true;  // We handled something
+		}
+		
+		return false;  // We didn't handle anything
 	}
 	
 #ifndef CORE_WILDFIRE
@@ -106,7 +110,7 @@ public:
 	void handle_proto(WildFire_CC3000_ClientRef serial, bool headers) {
 #endif
 		
-		Serial.println("HttpHandler::handle_proto()");
+		//Serial.println("HttpHandler::handle_proto()");
 
 		// Check if there is data available to read
 		while (serial.available()) {
@@ -120,8 +124,10 @@ public:
 			// Check if we are receveing useful data and process it
 			if ((c == '/' || c == '\r') && state_selected == false) {
 
-				//Serial.println(answer);
-				Serial.print(F("answer: ")); Serial.println(answer); 
+				//Serial.print(F("answer: ")); Serial.println(answer); 
+				if (!answer.startsWith("GET /")) {
+					Serial.print(F("Request: ")); Serial.println(answer); 
+				}
 
 				// Check if variable name is in array
 				for (int i = 0; i < variables_index; i++) {
@@ -188,7 +194,7 @@ public:
 					Serial.println(fullPacket);
 				}
 
-				Serial.print(F("Free RAM HttpHandler: ")); Serial.println(getFreeRam(), DEC);
+				//Serial.print(F("Free RAM HttpHandler: ")); Serial.println(getFreeRam(), DEC);
 
 				fullPacket.toCharArray(charArr, fullPacket.length()+1);
 				serial.fastrprint(charArr);
