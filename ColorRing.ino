@@ -1327,6 +1327,7 @@ int stripStep(boolean isOutside) {
 	int endCmdPos = isOutside ? MAX_NUM_STRIPCMDS-1 : (MAX_NUM_STRIPCMDS * 2) - 1;
 	//cout << "startCmdPos: " << (int)startCmdPos << ", endCmdPos: " << (int)endCmdPos << endl;
 	
+	bool stripHasAtLeastOneCmd = false;
 	for (int i = startCmdPos; i <= endCmdPos; i++) {
 		if (stripCmds[i]) {
 			// Debug output
@@ -1335,6 +1336,8 @@ int stripStep(boolean isOutside) {
 				// First time only
 				//cout << F("Starting cmd '#") << i << F("' (") << stripCmds[i]->getCmdTypeStr() << F(") on '") << inOutStr << F(" strip.") << endl;
 			//}
+			
+			stripHasAtLeastOneCmd = true;
 			
 			if (stripCmds[i]->isMoreSteps()) {
 				if (!stripCmds[i]->getIsAnim()) {
@@ -1349,6 +1352,14 @@ int stripStep(boolean isOutside) {
 			}
 		}
 	}
+	
+	if (!stripHasAtLeastOneCmd) {
+		// Clear strip & be done.
+		clearStrip(strip);
+		strip->show();
+		return 0;
+	}
+	
 	if (!stepTaken) {
 		// Keep.
 		//cout << "Done with all cmds on " << inOutStr << " strip. (no step taken). RESETTING all cmds for this strip." << endl;
