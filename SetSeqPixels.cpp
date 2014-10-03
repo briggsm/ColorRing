@@ -60,22 +60,11 @@ SetSeqPixels::SetSeqPixels(Adafruit_NeoPixel* strip, byte* stripCmdArray) {
 	
 	// boolBits
 	byte boolBits = stripCmdArray[11];
-	/*
-	bool destructive = bitChecker(BOOLBIT_DESTRUCTIVE, boolBits);
-	bool direction = bitChecker(BOOLBIT_DIRECTION, boolBits);
-	//bool wrap = bitChecker(BOOLBIT_WRAP, boolBits);
-	bool isAnim = bitChecker(BOOLBIT_ISANIM, boolBits);
-	bool clearStripBefore = bitChecker(BOOLBIT_CLEARSTRIP, boolBits);
-	bool gradiate = bitChecker(BOOLBIT_GRADIATE, boolBits);
-	bool gradiateLastPixelFirstColor = bitChecker(BOOLBIT_GRADIATE_LASTPIXEL_FIRSTCOLOR, boolBits);
-	*/
 	setBoolBitVars(boolBits, destructive, direction, wrap, isAnim, clearStripBefore, gradiate, gradiateLastPixelFirstColor);
 	
 	// colorSeriesArr
 	byte numColorsInSeries = stripCmdArray[12];
 	byte csaFirstBytePos = 13;
-	//byte maxNumColors = (MAX_STRIPCMD_SIZE - csaFirstBytePos) / 3;  // stripCmd's are 32-bytes total (MAX_STRIPCMD_SIZE).
-	//PixelColor colorSeriesArr[maxNumColors];
 	for (int i = 0; i < numColorsInSeries; i++) {
 		byte bOffset = csaFirstBytePos + (3*i);
 		colorSeriesArr[i] = PixelColor(stripCmdArray[bOffset], stripCmdArray[bOffset+1], stripCmdArray[bOffset+2]);
@@ -151,6 +140,11 @@ void SetSeqPixels::step(boolean isShowStrip) {
 	if (!isPauseMode) {
 		//cout << "SetSeqPixels::step(" << (int)isShowStrip << ") [not paused]" << endl;
 		
+		if (numPixelsEachColor < 1 || numColorsInSeries < 1) {
+			// Invalid scenarios
+			return;
+		}
+		
 		lscStepPreCommon();
 		
 	
@@ -161,7 +155,7 @@ void SetSeqPixels::step(boolean isShowStrip) {
 		//cout << F("currPixelNum: ") << (int)currPixelNum << endl;
 
 		// Set currPixelColor	
-		if (gradiate) {
+		if (gradiate && multiGradient.getIsValid() && numColorsInSeries > 1) {
 			currPixelColor = multiGradient.getTweenPixelColor(currIteration);
 		} else {
 			// Don't worry about gradients

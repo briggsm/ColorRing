@@ -107,10 +107,16 @@ MultiGradient
 ********************/
 
 MultiGradient::MultiGradient() {
-	
+	isValid = false;
 }
 
 MultiGradient::MultiGradient(PixelColor *colorSeriesArr, byte numColorsInSeries, byte numPixelsEachColor, bool gradiateLastPixelFirstColor) {
+	isValid = true;
+	if (numColorsInSeries < 2 || numPixelsEachColor < 1) {
+		isValid = false;
+		return;  // Nothing more to do.
+	}
+	
 	numPixels = numColorsInSeries * numPixelsEachColor;  // Inclusive
 	
 	byte numGradients = gradiateLastPixelFirstColor ? numColorsInSeries : numColorsInSeries - 1;
@@ -163,6 +169,8 @@ MultiGradient::MultiGradient(PixelColor *colorSeriesArr, byte numColorsInSeries,
 	mgArr.push_back((gradiateLastPixelFirstColor ? colorSeriesArr[0] : colorSeriesArr[numColorsInSeries-1]));
 	
 	//cout << F("mgArr size: ") << mgArr.size() << endl;
+	
+	isValid = true;
 }
 
 /*
@@ -175,4 +183,8 @@ word MultiGradient::getNumPixels() {
 
 PixelColor MultiGradient::getTweenPixelColor(word tweenNum) {
 	return mgArr[tweenNum % numPixels];
+}
+
+bool MultiGradient::getIsValid() {
+	return isValid;
 }

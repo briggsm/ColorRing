@@ -51,12 +51,14 @@ class MultiGradient {
 private:
 	word numPixels;  // Inclusive
 	std::vector<PixelColor> mgArr;
+	bool isValid;
 public:
 	MultiGradient();
 	MultiGradient(PixelColor *colorSeriesArr, byte numColorsInSeries, byte numPixelsEachColor, bool gradiateLastPixelFirstColor);
 	
 	//word getNumPixels();
 	PixelColor getTweenPixelColor(word tweenNum);
+	bool getIsValid();
 };
 
 #endif // GRADIENT_H
