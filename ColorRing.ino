@@ -1133,6 +1133,8 @@ void executePacket() {
 					EEPROM.write(EEP_STRIPCMDS_START + i, 0xFF);
 				}
 			}
+			readStripCmdsFromEEPROM();  // To display empty light show.
+			
 			break;
 			
 		case WIFI_PACKET_SET_STRIPCMD:  // 0xDD (221)
