@@ -799,6 +799,14 @@ void loop() {
 			isClapTriggerClockEnabled = false;
 			opModeOutside = tempClapOpModeOutside;
 			opModeInside = tempClapOpModeInside;
+
+			// Reset all cmds (for both strips). Start light show over back at beginning.
+			for (int i = 0; i < MAX_NUM_STRIPCMDS * 2; i++) {
+				if (stripCmds[i]) {
+					stripCmds[i]->reset();
+				}
+			}
+				
 			clearAndShowBothStrips();
 		}
 		
@@ -1113,6 +1121,20 @@ void executePacket() {
 			
 			break;
 		
+		case WIFI_PACKET_SET_ALL_STRIPCMDS_NONE:  // 0xDC (220)
+			byte firstByte;
+			for (int i = 0; i < EEP_STRIPCMDS_SIZE; i++) {  // 0-640
+				// if 1st byte of cmd is 0xFF, we'll assume all the rest of that cmd are also.
+				if (i % MAX_STRIPCMD_SIZE == 0) {  // First byte of every 32-byte cmd (i % 32)
+					firstByte = EEPROM.read(EEP_STRIPCMDS_START + i);
+				}
+				
+				if (firstByte != 0xFF) {
+					EEPROM.write(EEP_STRIPCMDS_START + i, 0xFF);
+				}
+			}
+			break;
+			
 		case WIFI_PACKET_SET_STRIPCMD:  // 0xDD (221)
 			byte cmdPos;
 			cmdPos = packet[1];
@@ -1128,6 +1150,7 @@ void executePacket() {
 			}
 			
 			break;
+			
 		case WIFI_PACKET_SET_CLAP_PARAMS:  // 0xE0 (224)
 			EnableClapOut = packet[1];
 			EnableClapIn = packet[2];

@@ -139,9 +139,9 @@ void Flow::init(Adafruit_NeoPixel* strip,
 	}
 	
 	
-	
-	multiGradient = MultiGradient(colorSeriesArr, numColorsInSeries, numPixelsEachColor, gradiateLastPixelFirstColor);
-	
+	if (gradiate && numColorsInSeries > 1 && numPixelsEachColor > 0) {
+		multiGradient = MultiGradient(colorSeriesArr, numColorsInSeries, numPixelsEachColor, gradiateLastPixelFirstColor);  // Makes it "valid"
+	}	
 	// Init other variables
 	//this->inOutStr = strip->getPin() == OUT_STRIP_PIN ? "OUTSIDE" : "INSIDE";
 }
@@ -152,14 +152,23 @@ void Flow::step(boolean isShowStrip) {
 	if (!isPauseMode) {
 		//cout << "Flow::step(" << (int)isShowStrip << ") [not paused]" << endl;
 		
+		if (numSections == 0 || (endPixelNum - startPixelNum) == 0 || numPixelsEachColor < 1 || numColorsInSeries < 1) {
+			// Invalid scenarios
+			return;
+		}
+		
 		lscStepPreCommon();
 		
-	
-		if (gradiate) {
+
+		if (gradiate && multiGradient.getIsValid() && numColorsInSeries > 1) {
 			currPixelColor = multiGradient.getTweenPixelColor(currIteration);
 		} else {
 			// Don't worry about gradients
-			currPixelColor = colorSeriesArr[(currIteration / numPixelsEachColor) % numColorsInSeries];
+			//if (numPixelsEachColor > 0 && numColorsInSeries > 0) {
+				currPixelColor = colorSeriesArr[(currIteration / numPixelsEachColor) % numColorsInSeries];
+			//} else {
+				//currPixelColor = BLACK;
+			//}
 		}
 		//cout << F("currPixelColor: "); currPixelColor.println();
 		
