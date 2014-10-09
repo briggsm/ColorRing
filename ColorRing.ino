@@ -74,6 +74,7 @@ namespace std {
 
 //=== DEBUG ===
 #define SKIP_CC3000 false  // for normal use, should be false.
+bool isNetworkAccess = false;  // for now.
 	
 	
 // === FFT ===
@@ -374,7 +375,7 @@ void setup(void)
 	hh.set_name("ColorRing");
 	showSetupProgress(setupStep++);
 	
-	
+	isNetworkAccess = false;  // for now
 	if (!SKIP_CC3000) {
 		// Set up CC3000 and get connected to the wireless network.
 		Serial.println(F("\nInitializing the CC3000..."));
@@ -393,48 +394,57 @@ void setup(void)
 		showSetupProgress(setupStep++);
 
 		Serial.print(F("\nAttempting to connect to ")); Serial.println(WLAN_SSID);
-		if (!cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY)) {
-			Serial.println(F("Failed!"));
-			while(1);
-		}
-		Serial.println(F("Connected!"));
-		showSetupProgress(setupStep++);
+		if (!cc3000.connectToAP(WLAN_SSID, WLAN_PASS, WLAN_SECURITY, 1)) {
+			Serial.println(F("Failed! No Network Access!"));
+			isNetworkAccess = false;
+			//while(1);
+			
+			// Notify user by blinking outside strip red
+			strip = &outStrip;
+			blinkSomeLEDs(&outStrip, RED, 60, 333, 3);  // strip, color, numPixels, delayMS, numBlinks
+			
+		} else {
+			Serial.println(F("Connected!"));
+			showSetupProgress(setupStep++);
 
-		//cc3000.setDHCP();
+			//cc3000.setDHCP();
 
-		Serial.println(F("Request DHCP"));
-		while (!cc3000.checkDHCP())
-		{
-			delay(100);
-		}
-		showSetupProgress(setupStep++);
+			Serial.println(F("Request DHCP"));
+			while (!cc3000.checkDHCP())
+			{
+				delay(100);
+			}
+			showSetupProgress(setupStep++);
 
-		// Print CC3000 IP address. Enable if mDNS doesn't work
-		while (! displayConnectionDetails()) {
-			delay(1000);
-		}
+			// Print CC3000 IP address. Enable if mDNS doesn't work
+			while (! displayConnectionDetails()) {
+				delay(1000);
+			}
 
-		// Start multicast DNS responder
-		if (!mdns.begin("colorring", cc3000)) {
-			while(1); 
-		}
-		showSetupProgress(setupStep++);
+			// Start multicast DNS responder
+			if (!mdns.begin("colorring", cc3000)) {
+				while(1); 
+			}
+			showSetupProgress(setupStep++);
 
-		// Start server
-		httpServer.begin();
-		rtColorServer.begin();
-		Serial.println(F("Server(s) Listening for connections..."));
-		showSetupProgress(setupStep++);
+			// Start server
+			httpServer.begin();
+			rtColorServer.begin();
+			Serial.println(F("Server(s) Listening for connections..."));
+			showSetupProgress(setupStep++);
 	
-		// NTP Server
-		CurrTime = DateTime(0);
-		ntpGrabbedOnce = false;
-		ntpTriesRemaining = NTP_NUM_TRIES;
-		lastGrabFromNtpSketchTime = 0;
-		lastGrabbedNtpTime = 0;
-		lastManualSetTimeMS = 0;
-		lastGrabbedManualTime = 0;
-		lastSecondVal = 0;
+			// NTP Server
+			CurrTime = DateTime(0);
+			ntpGrabbedOnce = false;
+			ntpTriesRemaining = NTP_NUM_TRIES;
+			lastGrabFromNtpSketchTime = 0;
+			lastGrabbedNtpTime = 0;
+			lastManualSetTimeMS = 0;
+			lastGrabbedManualTime = 0;
+			lastSecondVal = 0;
+			
+			isNetworkAccess = true;
+		}
 	}
 
 	Serial.print(F("Free RAM End Setup: ")); Serial.println(getFreeRam(), DEC);
@@ -447,7 +457,7 @@ void loop() {
 	//byte opModeInside = OpMode & 0x0F;
 	
 	//Serial.print("Free RAM loop: "); Serial.println(getFreeRam(), DEC);
-	if (!SKIP_CC3000) {
+	if (isNetworkAccess) {
 		// Handle any multicast DNS requests
 		mdns.update();
 	
@@ -462,16 +472,7 @@ void loop() {
 	
 		if (hh.handle(httpClient)) {
 			// Blink some LED's
-			strip = &outStrip;
-			PixelColor colorSeriesArr[1];
-			
-			colorSeriesArr[0] = BLUE;
-			SetSeqPixels toggleSsp(strip, 0, 3, 1, 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
-			toggleSsp.exec(SHOWSTRIP);
-			delay(2);  // to see it a little better.
-			colorSeriesArr[0] = BLACK;
-			SetSeqPixels toggleSsp2(strip, 0, 3, 1, 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
-			toggleSsp2.exec(SHOWSTRIP);
+			blinkSomeLEDs(&outStrip, BLUE, 3, 2, 1);  // strip, color, numPixels, delayMS, numBlinks
 		}
 	
 		//Serial.print("Free RAM After http: "); Serial.println(getFreeRam(), DEC);
@@ -591,7 +592,7 @@ void loop() {
 	// === CLOCK ===
 	// =============
 	if (opModeOutside == OPMODE_CLOCK || opModeInside == OPMODE_CLOCK) {
-		if (UseNtpServer) {
+		if (UseNtpServer && isNetworkAccess) {
 			if (!ntpGrabbedOnce || millis() - lastGrabFromNtpSketchTime > NTP_GRAB_FREQ_MS) {
 				if (ntpTriesRemaining > 0) {
 			
@@ -801,11 +802,7 @@ void loop() {
 			opModeInside = tempClapOpModeInside;
 
 			// Reset all cmds (for both strips). Start light show over back at beginning.
-			for (int i = 0; i < MAX_NUM_STRIPCMDS * 2; i++) {
-				if (stripCmds[i]) {
-					stripCmds[i]->reset();
-				}
-			}
+			resetStripCmds(true, true);  // Outside & Inside.
 				
 			clearAndShowBothStrips();
 		}
@@ -957,6 +954,9 @@ void executePacket() {
 			clearStrip(strip);
 			strip->show();
 			*/
+			
+			// Reset strip(s) IFF opMode is Internal
+			resetStripCmds(opModeOutside == OPMODE_INTERNAL, opModeInside == OPMODE_INTERNAL);
 			
 			break;
 		case WIFI_PACKET_SET_OUT_EXTERNALCTRLMODE: //0xBB (187)
@@ -1336,7 +1336,7 @@ int str2int(String s) {
 }
 
 int stripStep(boolean isOutside) {
-	string inOutStr = isOutside ? "OUTSIDE" : "INSIDE";  // Keep for reference.
+	//string inOutStr = isOutside ? "OUTSIDE" : "INSIDE";  // Keep for reference.
 	//cout << "**stripStep(" << inOutStr << ")" << endl;
 	
 	if (isOutside) {
@@ -1390,11 +1390,7 @@ int stripStep(boolean isOutside) {
 		//cout << "Done with all cmds on " << inOutStr << " strip. (no step taken). RESETTING all cmds for this strip." << endl;
 
 		// Reset all cmds (just for current strip)
-		for (int i = startCmdPos; i <= endCmdPos; i++) {
-			if (stripCmds[i]) {
-				stripCmds[i]->reset();
-			}
-		}
+		resetStripCmds(isOutside, !isOutside);
 	}
 	
 	return animDelay;
@@ -1739,6 +1735,41 @@ void showSetupProgress(byte step) {
 		strip->setPixelColor(step * numSeq + i, pc.getLongVal());
 	}
 	strip->show();
+}
+
+void resetStripCmds(bool isOutside, bool isInside) {
+	if (!isOutside && !isInside) { return; }
+	
+	int startCmdPos = isOutside ? 0 : MAX_NUM_STRIPCMDS;
+	int endCmdPos = isInside ? (MAX_NUM_STRIPCMDS * 2) - 1 : MAX_NUM_STRIPCMDS-1;
+	
+
+	for (int i = startCmdPos; i <= endCmdPos; i++) {
+		if (stripCmds[i]) {
+			stripCmds[i]->reset();
+		}
+	}
+}
+
+void blinkSomeLEDs(Adafruit_NeoPixel* strip, PixelColor color, byte numPixels, word delayMS, byte numBlinks) {
+	PixelColor colorSeriesArr[1];
+	if (numPixels > 60) { numPixels = 60; }
+	
+	for (int i = 0; i < numBlinks; i++) {
+		colorSeriesArr[0] = color;
+		SetSeqPixels toggleSsp(strip, 0, numPixels, 1, 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
+		toggleSsp.exec(SHOWSTRIP);
+	
+		delay(delayMS);
+	
+		colorSeriesArr[0] = BLACK;
+		SetSeqPixels toggleSsp2(strip, 0, numPixels, 1, 0, ITER_ENOUGH, 0, 0, DESTRUCTIVE, CW, NONANIMATED, NOCLEAR, NOGRADIATE, GRADIATE_LASTPIXEL_LASTCOLOR, 1, colorSeriesArr);
+		toggleSsp2.exec(SHOWSTRIP);
+		
+		if (i < numBlinks - 1) {
+			delay(delayMS);
+		}
+	}
 }
 
 ISR(ADC_vect) { // Audio-sampling interrupt
