@@ -205,7 +205,7 @@ void Flow::singleFlow(Adafruit_NeoPixel* strip, byte startPixelNum, byte endPixe
 	// First Shift
 	//Shift shift(strip, startPixelNum, endPixelNum, 0, 1, 0, 0, direction, NOWRAP, NONANIMATED);
 	//shift.exec(NOSHOWSTRIP);
-	Shift *shift = new Shift(strip, startPixelNum, endPixelNum, 0, 1, 0, 0, direction, NOWRAP, NONANIMATED);
+	Shift *shift = new Shift(strip, startPixelNum, endPixelNum, numPixelsToSkip, 1, 0, 0, direction, NOWRAP, NONANIMATED);
 	shift->exec(NOSHOWSTRIP);
 	delete(shift);
 	
