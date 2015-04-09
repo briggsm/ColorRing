@@ -232,7 +232,8 @@ const unsigned long
   connectTimeout  = 3L * 1000L, // Max time to wait for server connection
   responseTimeout = 1L * 1000L; // Max time to wait for data from server
 bool ntpGrabbedOnce;
-unsigned long lastGrabFromNtpSketchTime;
+unsigned long lastSuccessfulGrabFromNtpSketchTime;
+unsigned long lastTryGrabFromNtpSketchTime;
 unsigned long lastGrabbedNtpTime;
 byte ntpTriesRemaining;
 unsigned long lastManualSetTimeMS;
@@ -437,7 +438,8 @@ void setup(void)
 			CurrTime = DateTime(0);
 			ntpGrabbedOnce = false;
 			ntpTriesRemaining = NTP_NUM_TRIES;
-			lastGrabFromNtpSketchTime = 0;
+			lastSuccessfulGrabFromNtpSketchTime = 0;
+			lastTryGrabFromNtpSketchTime = 0;
 			lastGrabbedNtpTime = 0;
 			lastManualSetTimeMS = 0;
 			lastGrabbedManualTime = 0;
@@ -593,14 +595,15 @@ void loop() {
 	// =============
 	if (opModeOutside == OPMODE_CLOCK || opModeInside == OPMODE_CLOCK) {
 		if (UseNtpServer && isNetworkAccess) {
-			if (!ntpGrabbedOnce || millis() - lastGrabFromNtpSketchTime > NTP_GRAB_FREQ_MS) {
+			if (!ntpGrabbedOnce || millis() - lastTryGrabFromNtpSketchTime > NTP_GRAB_FREQ_MS) {
 				if (ntpTriesRemaining > 0) {
 			
 					unsigned long t = getTime();  // Query time server
 					if (t) {
 						Serial.println(F("SUCCESSFULLY GRABBED TIME FROM NTP SERVER!"));
 						ntpGrabbedOnce = true;
-						lastGrabFromNtpSketchTime = millis();
+						//lastGrabFromNtpSketchTime = millis();
+						lastSuccessfulGrabFromNtpSketchTime = lastTryGrabFromNtpSketchTime = millis();
 						lastGrabbedNtpTime = t;
 						ntpTriesRemaining = NTP_NUM_TRIES;
 					
@@ -621,32 +624,32 @@ void loop() {
 					Serial.println(F("NTP SERVER GRAB TOTALLY FAILED. GIVING UP (until next try)."));
 					// Pretend that we got the time, so we don't keep trying
 					ntpGrabbedOnce = true;
-					lastGrabFromNtpSketchTime = millis();
+					lastTryGrabFromNtpSketchTime = millis();
 					ntpTriesRemaining = NTP_NUM_TRIES;
 				}
 			}
 			
-			CurrTime = DateTime(lastGrabbedNtpTime + (TzAdj * 60 * 60) + (IsDst * 60 * 60) + (millis() - lastGrabFromNtpSketchTime) / 1000);
+			CurrTime = DateTime(lastGrabbedNtpTime + (TzAdj * 60 * 60) + (IsDst * 60 * 60) + ((millis() - lastSuccessfulGrabFromNtpSketchTime) / 1000));
 		
 			//Debug
-			//Serial.print(CurrTime.hour()); Serial.print(F(":"));
-			//Serial.print(CurrTime.minute()); Serial.print(F(":"));
-			//Serial.println(CurrTime.second());
+			Serial.print(CurrTime.hour()); Serial.print(F(":"));
+			Serial.print(CurrTime.minute()); Serial.print(F(":"));
+			Serial.println(CurrTime.second());
 		} else {
 			// Time must be set manually
 
 			// Debug
-			//Serial.print(F("unixtime: ")); Serial.println(CurrTime.unixtime());
-			//Serial.print(F("lastManualSetTimeMS: ")); Serial.println(lastManualSetTimeMS);
-			//Serial.print(F("millis: ")); Serial.println(millis());
-			//Serial.print(F("math: ")); Serial.println(CurrTime.unixtime() + (millis() - lastManualSetTimeMS) / 1000);
+			Serial.print(F("unixtime: ")); Serial.println(CurrTime.unixtime());
+			Serial.print(F("lastManualSetTimeMS: ")); Serial.println(lastManualSetTimeMS);
+			Serial.print(F("millis: ")); Serial.println(millis());
+			Serial.print(F("math: ")); Serial.println(CurrTime.unixtime() + (millis() - lastManualSetTimeMS) / 1000);
 			
 			CurrTime = DateTime(lastGrabbedManualTime + (millis() - lastManualSetTimeMS) / 1000);
 			
 			//Debug
-			//Serial.print(CurrTime.hour()); Serial.print(F(":"));
-			//Serial.print(CurrTime.minute()); Serial.print(F(":"));
-			//Serial.println(CurrTime.second());
+			Serial.print(CurrTime.hour()); Serial.print(F(":"));
+			Serial.print(CurrTime.minute()); Serial.print(F(":"));
+			Serial.println(CurrTime.second());
 		}
 		
 		displayTimeToStrips();
